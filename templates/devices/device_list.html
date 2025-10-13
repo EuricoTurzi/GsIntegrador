@@ -1,0 +1,687 @@
+{% extends 'base.html' %}
+
+{% block title %}Rastreadores - GR System{% endblock %}
+
+{% block page_title %}Rastreadores{% endblock %}
+
+{% block breadcrumbs %}
+<nav class="flex mb-4" aria-label="Breadcrumb">
+    <ol class="inline-flex items-center space-x-1 md:space-x-3">
+        <li class="inline-flex items-center">
+            <a href="{% url 'dashboard' %}" class="text-gray-400 hover:text-primary-500">
+                <i class="fas fa-home mr-2"></i>Dashboard
+            </a>
+        </li>
+        <li>
+            <div class="flex items-center">
+                <i class="fas fa-chevron-right text-gray-400 mx-2"></i>
+                <span class="text-white">Rastreadores</span>
+            </div>
+        </li>
+    </ol>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    
+    <!-- Stats Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <!-- Total Rastreadores -->
+        <div class="bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg shadow-lg p-6 text-white">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-blue-100 text-sm font-medium">Total de Rastreadores</p>
+                    <p class="text-3xl font-bold mt-2">{{ stats.total }}</p>
+                </div>
+                <div class="bg-blue-400 bg-opacity-30 rounded-full p-3">
+                    <i class="fas fa-satellite-dish text-2xl"></i>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Ativos (atualizados recentemente) -->
+        <div class="bg-gradient-to-br from-green-500 to-green-600 rounded-lg shadow-lg p-6 text-white">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-green-100 text-sm font-medium">Ativos (< 24h)</p>
+                    <p class="text-3xl font-bold mt-2">{{ stats.active }}</p>
+                </div>
+                <div class="bg-green-400 bg-opacity-30 rounded-full p-3">
+                    <i class="fas fa-check-circle text-2xl"></i>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Desatualizados -->
+        <div class="bg-gradient-to-br from-yellow-500 to-yellow-600 rounded-lg shadow-lg p-6 text-white">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-yellow-100 text-sm font-medium">Desatualizados (> 24h)</p>
+                    <p class="text-3xl font-bold mt-2">{{ stats.outdated }}</p>
+                </div>
+                <div class="bg-yellow-400 bg-opacity-30 rounded-full p-3">
+                    <i class="fas fa-exclamation-triangle text-2xl"></i>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Sem Dados -->
+        <div class="bg-gradient-to-br from-red-500 to-red-600 rounded-lg shadow-lg p-6 text-white">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-red-100 text-sm font-medium">Sem Dados</p>
+                    <p class="text-3xl font-bold mt-2">{{ stats.no_data }}</p>
+                </div>
+                <div class="bg-red-400 bg-opacity-30 rounded-full p-3">
+                    <i class="fas fa-times-circle text-2xl"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Sync Status Alert -->
+    <div class="bg-blue-900 bg-opacity-20 border border-blue-500 rounded-lg p-4">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center">
+                <i class="fas fa-sync-alt text-blue-500 mr-3" id="sync-icon"></i>
+                <div>
+                    <h4 class="text-blue-400 font-semibold">Sincronização com Suntech API</h4>
+                    <p class="text-blue-300 text-sm mt-1">
+                        Última sincronização: <span id="last-sync-time">{{ last_sync|date:"d/m/Y H:i"|default:"Nunca" }}</span>
+                        <span class="ml-2 text-blue-400" id="next-sync-countdown"></span>
+                    </p>
+                </div>
+            </div>
+            <button onclick="syncDevices()" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors">
+                <i class="fas fa-sync-alt mr-2"></i>Sincronizar Agora
+            </button>
+        </div>
+    </div>
+    
+    <!-- Filters and Search -->
+    <div class="bg-gray-800 rounded-lg shadow-lg p-6">
+        <form method="get" class="space-y-4" x-data="{ showFilters: false }">
+            <!-- Search Bar -->
+            <div class="flex flex-col md:flex-row gap-4">
+                <div class="flex-1">
+                    <div class="relative">
+                        <input 
+                            type="text" 
+                            name="search" 
+                            value="{{ request.GET.search }}"
+                            placeholder="Buscar por label, IMEI ou veículo..." 
+                            class="w-full bg-gray-700 text-white rounded-lg pl-10 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                        <i class="fas fa-search absolute left-3 top-4 text-gray-400"></i>
+                    </div>
+                </div>
+                <button 
+                    type="button"
+                    @click="showFilters = !showFilters"
+                    class="px-6 py-3 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors">
+                    <i class="fas fa-filter mr-2"></i>
+                    Filtros
+                    <i :class="showFilters ? 'fa-chevron-up' : 'fa-chevron-down'" class="fas ml-2"></i>
+                </button>
+                <a href="{% url 'devices-create' %}" class="px-6 py-3 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors flex items-center justify-center">
+                    <i class="fas fa-plus mr-2"></i>
+                    Novo Rastreador
+                </a>
+            </div>
+            
+            <!-- Advanced Filters -->
+            <div x-show="showFilters" x-collapse class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t border-gray-700">
+                <!-- Update Status Filter -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-2">Status de Atualização</label>
+                    <select name="update_status" class="w-full bg-gray-700 text-white rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                        <option value="">Todos</option>
+                        <option value="active" {% if request.GET.update_status == 'active' %}selected{% endif %}>Ativo (< 24h)</option>
+                        <option value="outdated" {% if request.GET.update_status == 'outdated' %}selected{% endif %}>Desatualizado (> 24h)</option>
+                        <option value="no_data" {% if request.GET.update_status == 'no_data' %}selected{% endif %}>Sem Dados</option>
+                    </select>
+                </div>
+                
+                <!-- Vehicle Status Filter -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-2">Status do Veículo</label>
+                    <select name="vehicle_status" class="w-full bg-gray-700 text-white rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                        <option value="">Todos</option>
+                        <option value="DISPONIVEL" {% if request.GET.vehicle_status == 'DISPONIVEL' %}selected{% endif %}>Disponível</option>
+                        <option value="EM_VIAGEM" {% if request.GET.vehicle_status == 'EM_VIAGEM' %}selected{% endif %}>Em Viagem</option>
+                    </select>
+                </div>
+                
+                <!-- Sort By -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-2">Ordenar por</label>
+                    <select name="sort" class="w-full bg-gray-700 text-white rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                        <option value="-last_position_date" {% if request.GET.sort == '-last_position_date' %}selected{% endif %}>Atualização mais recente</option>
+                        <option value="last_position_date" {% if request.GET.sort == 'last_position_date' %}selected{% endif %}>Atualização mais antiga</option>
+                        <option value="label" {% if request.GET.sort == 'label' %}selected{% endif %}>Label (A-Z)</option>
+                        <option value="-created_at" {% if request.GET.sort == '-created_at' %}selected{% endif %}>Cadastro mais recente</option>
+                    </select>
+                </div>
+                
+                <!-- Apply Filters Button -->
+                <div class="md:col-span-3 flex justify-end gap-2">
+                    <a href="{% url 'devices-list' %}" class="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors">
+                        <i class="fas fa-times mr-2"></i>Limpar
+                    </a>
+                    <button type="submit" class="px-6 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors">
+                        <i class="fas fa-search mr-2"></i>Aplicar Filtros
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+    
+    <!-- Devices Table -->
+    <div class="bg-gray-800 rounded-lg shadow-lg overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead class="bg-gray-900 border-b border-gray-700">
+                    <tr>
+                        <th class="px-6 py-4 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Identificador</th>
+                        <th class="px-6 py-4 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">IMEI</th>
+                        <th class="px-6 py-4 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Veículo</th>
+                        <th class="px-6 py-4 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Última Posição</th>
+                        <th class="px-6 py-4 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Status</th>
+                        <th class="px-6 py-4 text-right text-xs font-medium text-gray-300 uppercase tracking-wider">Ações</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-700">
+                    {% for device in devices %}
+                    <tr class="hover:bg-gray-750 transition-colors" data-device-id="{{ device.pk }}">
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0 h-10 w-10 bg-gray-700 rounded flex items-center justify-center">
+                                    <i class="fas fa-satellite-dish text-primary-500"></i>
+                                </div>
+                                <div class="ml-4">
+                                    <div class="text-sm font-medium text-white">{{ device.label|default:device.imei|default:"Sem identificação" }}</div>
+                                    <div class="text-sm text-gray-400">ID Suntech: {{ device.suntech_device_id }}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-300">{{ device.imei|default:"N/A" }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            {% if device.vehicle %}
+                            <div class="text-sm text-white">{{ device.vehicle.placa }}</div>
+                            <div class="text-sm text-gray-400">{{ device.vehicle.modelo }}</div>
+                            {% else %}
+                            <span class="text-gray-500 text-sm">Sem veículo</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap last-position-cell">
+                            {% if device.last_position_date %}
+                            <div class="text-sm text-white">{{ device.last_position_date|date:"d/m/Y" }}</div>
+                            <div class="text-sm text-gray-400">{{ device.last_position_date|date:"H:i" }}</div>
+                            {% else %}
+                            <span class="text-gray-500 text-sm">Sem dados</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap status-cell">
+                            {% if device.is_updated %}
+                            <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                <i class="fas fa-check-circle mr-1"></i> Ativo
+                            </span>
+                            {% elif device.is_outdated %}
+                            <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                                <i class="fas fa-exclamation-triangle mr-1"></i> Desatualizado
+                            </span>
+                            {% else %}
+                            <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
+                                <i class="fas fa-times-circle mr-1"></i> Sem dados
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <a href="{% url 'devices-detail' device.pk %}" class="text-primary-400 hover:text-primary-300 mr-3" title="Ver detalhes">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                            <button onclick="syncDevice({{ device.pk }}, '{{ device.label|default:device.imei|default:device.suntech_device_id }}')" class="text-blue-400 hover:text-blue-300 mr-3" title="Sincronizar">
+                                <i class="fas fa-sync-alt"></i>
+                            </button>
+                            <a href="{% url 'devices-edit' device.pk %}" class="text-yellow-400 hover:text-yellow-300" title="Editar">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="px-6 py-12 text-center">
+                            <div class="flex flex-col items-center justify-center text-gray-400">
+                                <i class="fas fa-satellite-dish text-6xl mb-4 text-gray-600"></i>
+                                <p class="text-lg font-medium">Nenhum rastreador encontrado</p>
+                                <p class="text-sm mt-2">Clique em "Novo Rastreador" para cadastrar</p>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Pagination -->
+        {% if devices.has_other_pages %}
+        <div class="bg-gray-900 px-6 py-4 flex items-center justify-between border-t border-gray-700">
+            <div class="flex-1 flex justify-between sm:hidden">
+                {% if devices.has_previous %}
+                <a href="?page={{ devices.previous_page_number }}" class="relative inline-flex items-center px-4 py-2 border border-gray-600 text-sm font-medium rounded-md text-gray-300 bg-gray-800 hover:bg-gray-700">
+                    Anterior
+                </a>
+                {% endif %}
+                {% if devices.has_next %}
+                <a href="?page={{ devices.next_page_number }}" class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-600 text-sm font-medium rounded-md text-gray-300 bg-gray-800 hover:bg-gray-700">
+                    Próxima
+                </a>
+                {% endif %}
+            </div>
+            <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                <div>
+                    <p class="text-sm text-gray-400">
+                        Mostrando <span class="font-medium">{{ devices.start_index }}</span> a <span class="font-medium">{{ devices.end_index }}</span> de <span class="font-medium">{{ devices.paginator.count }}</span> resultados
+                    </p>
+                </div>
+                <div>
+                    <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                        {% if devices.has_previous %}
+                        <a href="?page={{ devices.previous_page_number }}" class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-600 bg-gray-800 text-sm font-medium text-gray-400 hover:bg-gray-700">
+                            <i class="fas fa-chevron-left"></i>
+                        </a>
+                        {% endif %}
+                        
+                        {% for num in devices.paginator.page_range %}
+                        {% if devices.number == num %}
+                        <span class="z-10 bg-primary-500 border-primary-500 text-white relative inline-flex items-center px-4 py-2 border text-sm font-medium">
+                            {{ num }}
+                        </span>
+                        {% elif num > devices.number|add:'-3' and num < devices.number|add:'3' %}
+                        <a href="?page={{ num }}" class="bg-gray-800 border-gray-600 text-gray-400 hover:bg-gray-700 relative inline-flex items-center px-4 py-2 border text-sm font-medium">
+                            {{ num }}
+                        </a>
+                        {% endif %}
+                        {% endfor %}
+                        
+                        {% if devices.has_next %}
+                        <a href="?page={{ devices.next_page_number }}" class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-600 bg-gray-800 text-sm font-medium text-gray-400 hover:bg-gray-700">
+                            <i class="fas fa-chevron-right"></i>
+                        </a>
+                        {% endif %}
+                    </nav>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+// VERSION: 2.0.0 - WebSocket com logs detalhados - 10/10/2025 12:08
+console.log('🚀 Script Version 2.0.0 carregado!');
+
+function syncDevices() {
+    if (confirm('Deseja sincronizar todos os rastreadores com a API Suntech? Isso pode levar alguns minutos.')) {
+        window.location.href = '/devices/sync-all/';
+    }
+}
+
+function syncDevice(deviceId, deviceName) {
+    if (confirm(`Deseja sincronizar o rastreador "${deviceName}" com a API Suntech?`)) {
+        window.location.href = `/devices/${deviceId}/sync/`;
+    }
+}
+
+// ===================================================================
+// WEBSOCKET - ATUALIZAÇÃO EM TEMPO REAL
+// ===================================================================
+
+let deviceSocket = null;
+let reconnectInterval = null;
+const RECONNECT_DELAY = 3000; // 3 segundos
+
+function connectWebSocket() {
+    // Define o protocolo correto (ws ou wss)
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${window.location.host}/ws/devices/`;
+    
+    console.log('🔌 Tentando conectar ao WebSocket:', wsUrl);
+    
+    deviceSocket = new WebSocket(wsUrl);
+    
+    deviceSocket.onopen = function(e) {
+        console.log('✅ WebSocket conectado ao servidor');
+        showToast('Conectado ao servidor - Atualizações em tempo real ativas', 'success');
+        
+        // Limpa tentativas de reconexão
+        if (reconnectInterval) {
+            clearInterval(reconnectInterval);
+            reconnectInterval = null;
+        }
+    };
+    
+    deviceSocket.onmessage = function(e) {
+        try {
+            const data = JSON.parse(e.data);
+            
+            // Log completo para debug
+            console.log('📨 WebSocket mensagem RAW:', e.data);
+            console.log('📨 WebSocket mensagem PARSED:', JSON.stringify(data, null, 2));
+            console.log('📨 Tipo:', data.type);
+            console.log('📨 Data:', data.data);
+            
+            if (data.type === 'device_sync') {
+                console.log('🔄 Processando device_sync...');
+                handleDeviceSync(data.data);
+            } else if (data.type === 'position_update') {
+                console.log('📍 Processando position_update...');
+                handlePositionUpdate(data.data);
+            } else if (data.type === 'connection_established') {
+                console.log('✅ Conexão estabelecida:', data.message);
+            } else {
+                console.warn('⚠️ Tipo de mensagem desconhecido:', data.type);
+            }
+        } catch (error) {
+            console.error('❌ Erro ao processar mensagem WebSocket:', error);
+            console.error('Mensagem original:', e.data);
+        }
+    };
+    
+    deviceSocket.onerror = function(error) {
+        console.error('❌ Erro no WebSocket:', error);
+    };
+    
+    deviceSocket.onclose = function(e) {
+        console.log('🔌 WebSocket desconectado. Tentando reconectar em 3 segundos...');
+        showToast('Conexão perdida. Tentando reconectar...', 'warning');
+        
+        // Tenta reconectar automaticamente
+        if (!reconnectInterval) {
+            reconnectInterval = setInterval(function() {
+                console.log('🔄 Tentando reconectar...');
+                connectWebSocket();
+            }, RECONNECT_DELAY);
+        }
+    };
+}
+
+function handleDeviceSync(data) {
+    try {
+        console.log('🔄 INÍCIO handleDeviceSync');
+        console.log('🔄 Data recebida:', JSON.stringify(data, null, 2));
+        
+        if (!data || !data.device_id) {
+            console.error('❌ Dados inválidos recebidos:', data);
+            return;
+        }
+        
+        const deviceId = data.device_id;
+        const deviceName = data.device_name || `Device ${deviceId}`;
+        
+        console.log('🔄 Device ID:', deviceId);
+        console.log('🔄 Device Name:', deviceName);
+        
+        // Mostra notificação
+        const minutesAgo = data.minutes_since_update ? Math.round(data.minutes_since_update) : 0;
+        console.log('🔄 Mostrando toast...');
+        showToast(`✅ ${deviceName} sincronizado! (${minutesAgo} min atrás)`, 'success');
+        
+        // Atualiza banner de "Última sincronização"
+        console.log('🔄 Atualizando banner...');
+        updateLastSyncBanner();
+        
+        // Atualiza a linha da tabela do dispositivo
+        console.log('🔄 Atualizando linha da tabela...');
+        updateDeviceRow(data);
+        
+        console.log('✅ Sincronização processada com sucesso');
+    } catch (error) {
+        console.error('❌ ERRO em handleDeviceSync:', error);
+        console.error('❌ Stack:', error.stack);
+        console.error('❌ Data:', data);
+    }
+}
+
+function handlePositionUpdate(data) {
+    console.log('📍 Posição atualizada:', data);
+    
+    // Atualiza informações de posição na tabela
+    updateDeviceRow(data);
+}
+
+function updateLastSyncBanner() {
+    try {
+        console.log('🔄 updateLastSyncBanner chamado');
+        
+        const lastSyncElement = document.getElementById('last-sync-time');
+        const syncIcon = document.getElementById('sync-icon');
+        
+        console.log('Element last-sync-time:', lastSyncElement);
+        console.log('Element sync-icon:', syncIcon);
+        
+        if (lastSyncElement) {
+            const now = new Date();
+            const formattedDate = now.toLocaleDateString('pt-BR', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric'
+            });
+            const formattedTime = now.toLocaleTimeString('pt-BR', {
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+            
+            const newText = `${formattedDate} ${formattedTime}`;
+            console.log('Atualizando texto para:', newText);
+            lastSyncElement.textContent = newText;
+            
+            // Anima o ícone de sync
+            if (syncIcon) {
+                console.log('Animando ícone...');
+                syncIcon.classList.add('fa-spin');
+                setTimeout(() => {
+                    syncIcon.classList.remove('fa-spin');
+                }, 1000);
+            }
+        } else {
+            console.warn('⚠️ Elemento last-sync-time não encontrado no DOM');
+        }
+    } catch (error) {
+        console.error('❌ Erro em updateLastSyncBanner:', error);
+    }
+}
+
+function updateDeviceRow(data) {
+    const deviceId = data.device_id;
+    
+    // Busca a linha da tabela
+    const row = document.querySelector(`tr[data-device-id="${deviceId}"]`);
+    
+    if (!row) {
+        console.log('⚠️ Linha do dispositivo não encontrada na tabela atual');
+        // Não recarrega mais - apenas ignora se não estiver na página atual
+        return;
+    }
+    
+    console.log('📝 Atualizando linha do dispositivo:', deviceId, data);
+    
+    // Atualiza célula de última posição
+    const lastPositionCell = row.querySelector('.last-position-cell');
+    if (lastPositionCell) {
+        if (data.last_position_date) {
+            const date = new Date(data.last_position_date);
+            lastPositionCell.innerHTML = `
+                <div class="text-sm text-white">${date.toLocaleDateString('pt-BR')}</div>
+                <div class="text-sm text-gray-400">${date.toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit'})}</div>
+            `;
+            console.log('✅ Última posição atualizada:', date.toLocaleString('pt-BR'));
+        } else {
+            lastPositionCell.innerHTML = '<span class="text-gray-500 text-sm">Sem dados</span>';
+        }
+    } else {
+        console.warn('⚠️ Célula de última posição não encontrada');
+    }
+    
+    // Atualiza badge de status
+    const statusCell = row.querySelector('.status-cell');
+    if (statusCell) {
+        let badgeClass = 'bg-gray-100 text-gray-800';
+        let icon = 'fa-question-circle';
+        let text = 'Desconhecido';
+        
+        if (data.status === 'active') {
+            badgeClass = 'bg-green-100 text-green-800';
+            icon = 'fa-check-circle';
+            text = 'Ativo';
+        } else if (data.status === 'outdated') {
+            badgeClass = 'bg-yellow-100 text-yellow-800';
+            icon = 'fa-exclamation-triangle';
+            text = 'Desatualizado';
+        } else if (data.status === 'no_data') {
+            badgeClass = 'bg-red-100 text-red-800';
+            icon = 'fa-times-circle';
+            text = 'Sem dados';
+        }
+        
+        statusCell.innerHTML = `
+            <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${badgeClass}">
+                <i class="fas ${icon} mr-1"></i> ${text}
+            </span>
+        `;
+        console.log('✅ Status atualizado:', text);
+    } else {
+        console.warn('⚠️ Célula de status não encontrada');
+    }
+    
+    // Adiciona efeito visual de "atualizado agora" com pulso verde
+    row.classList.add('bg-green-900', 'bg-opacity-20', 'transition-all', 'duration-300');
+    setTimeout(() => {
+        row.classList.remove('bg-green-900', 'bg-opacity-20');
+    }, 2000);
+    
+    // Scroll suave até a linha atualizada (se não estiver visível)
+    row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function showToast(message, type = 'info') {
+    // Remove toasts anteriores
+    const oldToast = document.getElementById('websocket-toast');
+    if (oldToast) oldToast.remove();
+    
+    // Define cores baseado no tipo
+    let bgColor = 'bg-blue-500';
+    let icon = 'fa-info-circle';
+    
+    if (type === 'success') {
+        bgColor = 'bg-green-500';
+        icon = 'fa-check-circle';
+    } else if (type === 'warning') {
+        bgColor = 'bg-yellow-500';
+        icon = 'fa-exclamation-triangle';
+    } else if (type === 'error') {
+        bgColor = 'bg-red-500';
+        icon = 'fa-times-circle';
+    }
+    
+    // Cria o toast
+    const toast = document.createElement('div');
+    toast.id = 'websocket-toast';
+    toast.className = `fixed bottom-4 right-4 ${bgColor} text-white px-6 py-3 rounded-lg shadow-lg flex items-center space-x-3 z-50 animate-fade-in`;
+    toast.innerHTML = `
+        <i class="fas ${icon}"></i>
+        <span>${message}</span>
+    `;
+    
+    document.body.appendChild(toast);
+    
+    // Remove após 3 segundos
+    setTimeout(() => {
+        toast.classList.add('animate-fade-out');
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
+}
+
+// Contador regressivo para próximo sync
+let nextSyncCountdown = null;
+
+function startSyncCountdown() {
+    const countdownElement = document.getElementById('next-sync-countdown');
+    if (!countdownElement) return;
+    
+    // Próximo sync é no próximo minuto cheio
+    function updateCountdown() {
+        const now = new Date();
+        const nextMinute = new Date(now);
+        nextMinute.setMinutes(now.getMinutes() + 1);
+        nextMinute.setSeconds(0);
+        nextMinute.setMilliseconds(0);
+        
+        const diff = nextMinute - now;
+        const seconds = Math.floor(diff / 1000);
+        
+        if (seconds > 0) {
+            countdownElement.textContent = `(próximo sync em ${seconds}s)`;
+        } else {
+            countdownElement.textContent = '(sincronizando...)';
+        }
+    }
+    
+    updateCountdown();
+    
+    if (nextSyncCountdown) clearInterval(nextSyncCountdown);
+    nextSyncCountdown = setInterval(updateCountdown, 1000);
+}
+
+// Conecta ao WebSocket quando a página carregar
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🚀 Iniciando WebSocket para dispositivos...');
+    connectWebSocket();
+    
+    // Inicia contador regressivo
+    startSyncCountdown();
+});
+
+// Desconecta ao sair da página
+window.addEventListener('beforeunload', function() {
+    if (deviceSocket) {
+        deviceSocket.close();
+    }
+    if (nextSyncCountdown) {
+        clearInterval(nextSyncCountdown);
+    }
+});
+</script>
+
+<style>
+@keyframes fade-in {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes fade-out {
+    from {
+        opacity: 1;
+        transform: translateY(0);
+    }
+    to {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+}
+
+.animate-fade-in {
+    animation: fade-in 0.3s ease-out;
+}
+
+.animate-fade-out {
+    animation: fade-out 0.3s ease-out;
+}
+</style>
+{% endblock %}

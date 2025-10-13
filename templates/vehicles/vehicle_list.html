@@ -1,0 +1,327 @@
+{% extends 'base.html' %}
+
+{% block title %}Veículos - GR System{% endblock %}
+
+{% block page_title %}Veículos{% endblock %}
+
+{% block breadcrumbs %}
+<nav class="flex mb-4" aria-label="Breadcrumb">
+    <ol class="inline-flex items-center space-x-1 md:space-x-3">
+        <li class="inline-flex items-center">
+            <a href="{% url 'dashboard' %}" class="text-gray-400 hover:text-primary-500">
+                <i class="fas fa-home mr-2"></i>Dashboard
+            </a>
+        </li>
+        <li>
+            <div class="flex items-center">
+                <i class="fas fa-chevron-right text-gray-400 mx-2"></i>
+                <span class="text-white">Veículos</span>
+            </div>
+        </li>
+    </ol>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    
+    <!-- Stats Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <!-- Total Veículos -->
+        <div class="bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg shadow-lg p-6 text-white">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-blue-100 text-sm font-medium">Total de Veículos</p>
+                    <p class="text-3xl font-bold mt-2">{{ stats.total }}</p>
+                </div>
+                <div class="bg-blue-400 bg-opacity-30 rounded-full p-3">
+                    <i class="fas fa-truck text-2xl"></i>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Disponíveis -->
+        <div class="bg-gradient-to-br from-green-500 to-green-600 rounded-lg shadow-lg p-6 text-white">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-green-100 text-sm font-medium">Disponíveis</p>
+                    <p class="text-3xl font-bold mt-2">{{ stats.available }}</p>
+                </div>
+                <div class="bg-green-400 bg-opacity-30 rounded-full p-3">
+                    <i class="fas fa-check-circle text-2xl"></i>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Em Viagem -->
+        <div class="bg-gradient-to-br from-yellow-500 to-yellow-600 rounded-lg shadow-lg p-6 text-white">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-yellow-100 text-sm font-medium">Em Viagem</p>
+                    <p class="text-3xl font-bold mt-2">{{ stats.on_trip }}</p>
+                </div>
+                <div class="bg-yellow-400 bg-opacity-30 rounded-full p-3">
+                    <i class="fas fa-route text-2xl"></i>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Manutenção -->
+        <div class="bg-gradient-to-br from-red-500 to-red-600 rounded-lg shadow-lg p-6 text-white">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-red-100 text-sm font-medium">Manutenção</p>
+                    <p class="text-3xl font-bold mt-2">{{ stats.maintenance }}</p>
+                </div>
+                <div class="bg-red-400 bg-opacity-30 rounded-full p-3">
+                    <i class="fas fa-tools text-2xl"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Filters and Search -->
+    <div class="bg-gray-800 rounded-lg shadow-lg p-6">
+        <form method="get" class="space-y-4" x-data="{ showFilters: false }">
+            <!-- Search Bar -->
+            <div class="flex flex-col md:flex-row gap-4">
+                <div class="flex-1">
+                    <div class="relative">
+                        <input 
+                            type="text" 
+                            name="search" 
+                            value="{{ request.GET.search }}"
+                            placeholder="Buscar por placa, modelo ou RENAVAM..." 
+                            class="w-full bg-gray-700 text-white rounded-lg pl-10 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                        <i class="fas fa-search absolute left-3 top-4 text-gray-400"></i>
+                    </div>
+                </div>
+                <button 
+                    type="button"
+                    @click="showFilters = !showFilters"
+                    class="px-6 py-3 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors">
+                    <i class="fas fa-filter mr-2"></i>
+                    Filtros
+                    <i :class="showFilters ? 'fa-chevron-up' : 'fa-chevron-down'" class="fas ml-2"></i>
+                </button>
+                <a href="{% url 'vehicles-create' %}" class="px-6 py-3 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors flex items-center justify-center">
+                    <i class="fas fa-plus mr-2"></i>
+                    Novo Veículo
+                </a>
+            </div>
+            
+            <!-- Advanced Filters -->
+            <div x-show="showFilters" x-collapse class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t border-gray-700">
+                <!-- Status Filter -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-2">Status</label>
+                    <select name="status" class="w-full bg-gray-700 text-white rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                        <option value="">Todos</option>
+                        <option value="DISPONIVEL" {% if request.GET.status == 'DISPONIVEL' %}selected{% endif %}>Disponível</option>
+                        <option value="EM_VIAGEM" {% if request.GET.status == 'EM_VIAGEM' %}selected{% endif %}>Em Viagem</option>
+                        <option value="MANUTENCAO" {% if request.GET.status == 'MANUTENCAO' %}selected{% endif %}>Manutenção</option>
+                        <option value="INATIVO" {% if request.GET.status == 'INATIVO' %}selected{% endif %}>Inativo</option>
+                    </select>
+                </div>
+                
+                <!-- Device Status Filter -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-2">Rastreador</label>
+                    <select name="device_status" class="w-full bg-gray-700 text-white rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                        <option value="">Todos</option>
+                        <option value="with" {% if request.GET.device_status == 'with' %}selected{% endif %}>Com Rastreador</option>
+                        <option value="without" {% if request.GET.device_status == 'without' %}selected{% endif %}>Sem Rastreador</option>
+                    </select>
+                </div>
+                
+                <!-- Sort By -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-2">Ordenar por</label>
+                    <select name="sort" class="w-full bg-gray-700 text-white rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                        <option value="-created_at" {% if request.GET.sort == '-created_at' %}selected{% endif %}>Mais recentes</option>
+                        <option value="created_at" {% if request.GET.sort == 'created_at' %}selected{% endif %}>Mais antigos</option>
+                        <option value="placa" {% if request.GET.sort == 'placa' %}selected{% endif %}>Placa (A-Z)</option>
+                        <option value="-placa" {% if request.GET.sort == '-placa' %}selected{% endif %}>Placa (Z-A)</option>
+                        <option value="modelo" {% if request.GET.sort == 'modelo' %}selected{% endif %}>Modelo (A-Z)</option>
+                    </select>
+                </div>
+                
+                <!-- Apply Filters Button -->
+                <div class="md:col-span-3 flex justify-end gap-2">
+                    <a href="{% url 'vehicles-list' %}" class="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors">
+                        <i class="fas fa-times mr-2"></i>Limpar
+                    </a>
+                    <button type="submit" class="px-6 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors">
+                        <i class="fas fa-search mr-2"></i>Aplicar Filtros
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+    
+    <!-- Vehicles Table -->
+    <div class="bg-gray-800 rounded-lg shadow-lg overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead class="bg-gray-900 border-b border-gray-700">
+                    <tr>
+                        <th class="px-6 py-4 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Placa</th>
+                        <th class="px-6 py-4 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Modelo</th>
+                        <th class="px-6 py-4 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Ano</th>
+                        <th class="px-6 py-4 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Rastreador</th>
+                        <th class="px-6 py-4 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Status</th>
+                        <th class="px-6 py-4 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Cadastrado em</th>
+                        <th class="px-6 py-4 text-right text-xs font-medium text-gray-300 uppercase tracking-wider">Ações</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-700">
+                    {% for vehicle in vehicles %}
+                    <tr class="hover:bg-gray-750 transition-colors">
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0 h-10 w-10 bg-gray-700 rounded flex items-center justify-center">
+                                    <i class="fas fa-truck text-primary-500"></i>
+                                </div>
+                                <div class="ml-4">
+                                    <div class="text-sm font-medium text-white">{{ vehicle.placa }}</div>
+                                    <div class="text-sm text-gray-400">{{ vehicle.renavam }}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm text-white">{{ vehicle.modelo }}</div>
+                            <div class="text-sm text-gray-400">{{ vehicle.cor }}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-300">{{ vehicle.ano }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            {% if vehicle.device %}
+                            <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800" title="{{ vehicle.device.identifier }}">
+                                <i class="fas fa-satellite-dish mr-1"></i> Conectado
+                            </span>
+                            {% else %}
+                            <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
+                                <i class="fas fa-times mr-1"></i> Sem rastreador
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            {% if vehicle.status == 'DISPONIVEL' %}
+                            <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                <i class="fas fa-check-circle mr-1"></i> Disponível
+                            </span>
+                            {% elif vehicle.status == 'EM_VIAGEM' %}
+                            <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                                <i class="fas fa-route mr-1"></i> Em Viagem
+                            </span>
+                            {% elif vehicle.status == 'MANUTENCAO' %}
+                            <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-orange-100 text-orange-800">
+                                <i class="fas fa-tools mr-1"></i> Manutenção
+                            </span>
+                            {% else %}
+                            <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
+                                <i class="fas fa-ban mr-1"></i> Inativo
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-400">{{ vehicle.created_at|date:"d/m/Y" }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <a href="{% url 'vehicles-detail' vehicle.pk %}" class="text-primary-400 hover:text-primary-300 mr-3" title="Ver detalhes">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                            <a href="{% url 'vehicles-edit' vehicle.pk %}" class="text-yellow-400 hover:text-yellow-300 mr-3" title="Editar">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                            <button onclick="changeStatus({{ vehicle.pk }}, '{{ vehicle.placa }}')" class="text-blue-400 hover:text-blue-300" title="Mudar status">
+                                <i class="fas fa-exchange-alt"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="px-6 py-12 text-center">
+                            <div class="flex flex-col items-center justify-center text-gray-400">
+                                <i class="fas fa-truck text-6xl mb-4 text-gray-600"></i>
+                                <p class="text-lg font-medium">Nenhum veículo encontrado</p>
+                                <p class="text-sm mt-2">Clique em "Novo Veículo" para cadastrar</p>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Pagination -->
+        {% if vehicles.has_other_pages %}
+        <div class="bg-gray-900 px-6 py-4 flex items-center justify-between border-t border-gray-700">
+            <div class="flex-1 flex justify-between sm:hidden">
+                {% if vehicles.has_previous %}
+                <a href="?page={{ vehicles.previous_page_number }}" class="relative inline-flex items-center px-4 py-2 border border-gray-600 text-sm font-medium rounded-md text-gray-300 bg-gray-800 hover:bg-gray-700">
+                    Anterior
+                </a>
+                {% endif %}
+                {% if vehicles.has_next %}
+                <a href="?page={{ vehicles.next_page_number }}" class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-600 text-sm font-medium rounded-md text-gray-300 bg-gray-800 hover:bg-gray-700">
+                    Próxima
+                </a>
+                {% endif %}
+            </div>
+            <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                <div>
+                    <p class="text-sm text-gray-400">
+                        Mostrando <span class="font-medium">{{ vehicles.start_index }}</span> a <span class="font-medium">{{ vehicles.end_index }}</span> de <span class="font-medium">{{ vehicles.paginator.count }}</span> resultados
+                    </p>
+                </div>
+                <div>
+                    <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                        {% if vehicles.has_previous %}
+                        <a href="?page={{ vehicles.previous_page_number }}" class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-600 bg-gray-800 text-sm font-medium text-gray-400 hover:bg-gray-700">
+                            <i class="fas fa-chevron-left"></i>
+                        </a>
+                        {% endif %}
+                        
+                        {% for num in vehicles.paginator.page_range %}
+                        {% if vehicles.number == num %}
+                        <span class="z-10 bg-primary-500 border-primary-500 text-white relative inline-flex items-center px-4 py-2 border text-sm font-medium">
+                            {{ num }}
+                        </span>
+                        {% elif num > vehicles.number|add:'-3' and num < vehicles.number|add:'3' %}
+                        <a href="?page={{ num }}" class="bg-gray-800 border-gray-600 text-gray-400 hover:bg-gray-700 relative inline-flex items-center px-4 py-2 border text-sm font-medium">
+                            {{ num }}
+                        </a>
+                        {% endif %}
+                        {% endfor %}
+                        
+                        {% if vehicles.has_next %}
+                        <a href="?page={{ vehicles.next_page_number }}" class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-600 bg-gray-800 text-sm font-medium text-gray-400 hover:bg-gray-700">
+                            <i class="fas fa-chevron-right"></i>
+                        </a>
+                        {% endif %}
+                    </nav>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+function changeStatus(vehicleId, vehiclePlate) {
+    const statusOptions = [
+        { value: 'DISPONIVEL', label: 'Disponível' },
+        { value: 'EM_VIAGEM', label: 'Em Viagem' },
+        { value: 'MANUTENCAO', label: 'Manutenção' },
+        { value: 'INATIVO', label: 'Inativo' }
+    ];
+    
+    // TODO: Implementar modal para seleção de status
+    const newStatus = prompt('Novo status:\n1 - Disponível\n2 - Em Viagem\n3 - Manutenção\n4 - Inativo');
+    
+    if (newStatus >= 1 && newStatus <= 4) {
+        // TODO: Implementar endpoint de mudança de status
+        alert(`Status do veículo ${vehiclePlate} será alterado para: ${statusOptions[newStatus-1].label}`);
+        // window.location.href = `/vehicles/${vehicleId}/change-status/`;
+    }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,348 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if driver %}Editar{% else %}Novo{% endif %} Motorista - GR System{% endblock %}
+
+{% block page_title %}{% if driver %}Editar{% else %}Novo{% endif %} Motorista{% endblock %}
+
+{% block breadcrumbs %}
+<nav class="flex mb-4" aria-label="Breadcrumb">
+    <ol class="inline-flex items-center space-x-1 md:space-x-3">
+        <li class="inline-flex items-center">
+            <a href="{% url 'dashboard' %}" class="text-gray-400 hover:text-primary-500">
+                <i class="fas fa-home mr-2"></i>Dashboard
+            </a>
+        </li>
+        <li>
+            <div class="flex items-center">
+                <i class="fas fa-chevron-right text-gray-400 mx-2"></i>
+                <a href="{% url 'drivers-list' %}" class="text-gray-400 hover:text-primary-500">Motoristas</a>
+            </div>
+        </li>
+        <li>
+            <div class="flex items-center">
+                <i class="fas fa-chevron-right text-gray-400 mx-2"></i>
+                <span class="text-white">{% if driver %}Editar{% else %}Novo{% endif %}</span>
+            </div>
+        </li>
+    </ol>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <form method="post" x-data="driverForm()" class="space-y-6">
+        {% csrf_token %}
+        
+        <!-- Dados Pessoais -->
+        <div class="bg-gray-800 rounded-lg shadow-lg p-6">
+            <h3 class="text-xl font-bold text-white mb-6 flex items-center">
+                <i class="fas fa-user text-primary-500 mr-2"></i>
+                Dados Pessoais
+            </h3>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Transportadora (apenas para GR) -->
+                {% if transportadoras %}
+                <div class="md:col-span-2">
+                    <label for="transportadora" class="block text-sm font-medium text-gray-300 mb-2">
+                        Transportadora <span class="text-red-500">*</span>
+                    </label>
+                    <select 
+                        id="transportadora" 
+                        name="transportadora"
+                        required 
+                        class="w-full bg-gray-700 text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                        <option value="">Selecione uma transportadora</option>
+                        {% for transp in transportadoras %}
+                        <option value="{{ transp.pk }}" {% if driver and driver.transportadora.pk == transp.pk %}selected{% elif form_data.transportadora == transp.pk|stringformat:"s" %}selected{% endif %}>
+                            {{ transp.company_name|default:transp.username }} - {{ transp.username }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <p class="text-gray-400 text-xs mt-1">Selecione a transportadora responsável pelo motorista</p>
+                </div>
+                {% elif request.user.is_superuser or request.user.user_type == 'GR' %}
+                <div class="md:col-span-2 p-4 bg-yellow-900/20 border border-yellow-500/30 rounded-lg">
+                    <p class="text-sm text-yellow-400">
+                        <i class="fas fa-exclamation-triangle mr-2"></i>
+                        Não há transportadoras cadastradas. Você precisa criar pelo menos uma transportadora antes de cadastrar motoristas.
+                    </p>
+                </div>
+                {% endif %}
+                
+                <!-- Nome Completo -->
+                <div class="md:col-span-2">
+                    <label for="nome" class="block text-sm font-medium text-gray-300 mb-2">
+                        Nome Completo <span class="text-red-500">*</span>
+                    </label>
+                    <input 
+                        type="text" 
+                        id="nome" 
+                        name="nome" 
+                        value="{{ driver.nome|default:'' }}"
+                        required
+                        class="w-full bg-gray-700 text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                        placeholder="Nome completo do motorista">
+                    {% if form.nome.errors %}
+                    <p class="text-red-400 text-sm mt-1">{{ form.nome.errors.0 }}</p>
+                    {% endif %}
+                </div>
+                
+                <!-- CPF -->
+                <div>
+                    <label for="cpf" class="block text-sm font-medium text-gray-300 mb-2">
+                        CPF <span class="text-red-500">*</span>
+                    </label>
+                    <input 
+                        type="text" 
+                        id="cpf" 
+                        name="cpf" 
+                        value="{{ driver.cpf|default:'' }}"
+                        x-mask="999.999.999-99"
+                        required
+                        class="w-full bg-gray-700 text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                        placeholder="000.000.000-00">
+                    {% if form.cpf.errors %}
+                    <p class="text-red-400 text-sm mt-1">{{ form.cpf.errors.0 }}</p>
+                    {% endif %}
+                </div>
+                
+                <!-- RG -->
+                <div>
+                    <label for="rg" class="block text-sm font-medium text-gray-300 mb-2">
+                        RG <span class="text-red-500">*</span>
+                    </label>
+                    <input 
+                        type="text" 
+                        id="rg" 
+                        name="rg" 
+                        value="{{ driver.rg|default:'' }}"
+                        x-mask="99.999.999-9"
+                        required
+                        class="w-full bg-gray-700 text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                        placeholder="00.000.000-0">
+                    {% if form.rg.errors %}
+                    <p class="text-red-400 text-sm mt-1">{{ form.rg.errors.0 }}</p>
+                    {% endif %}
+                </div>
+                
+                <!-- Data de Nascimento -->
+                <div>
+                    <label for="data_nascimento" class="block text-sm font-medium text-gray-300 mb-2">
+                        Data de Nascimento
+                    </label>
+                    <input 
+                        type="date" 
+                        id="data_nascimento" 
+                        name="data_nascimento" 
+                        value="{{ driver.data_nascimento|date:'Y-m-d'|default:'' }}"
+                        class="w-full bg-gray-700 text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                    {% if form.data_nascimento.errors %}
+                    <p class="text-red-400 text-sm mt-1">{{ form.data_nascimento.errors.0 }}</p>
+                    {% endif %}
+                </div>
+                
+                <!-- Telefone -->
+                <div>
+                    <label for="telefone" class="block text-sm font-medium text-gray-300 mb-2">
+                        Telefone
+                    </label>
+                    <input 
+                        type="text" 
+                        id="telefone" 
+                        name="telefone" 
+                        value="{{ driver.telefone|default:'' }}"
+                        x-mask="(99) 99999-9999"
+                        class="w-full bg-gray-700 text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                        placeholder="(00) 00000-0000">
+                    {% if form.telefone.errors %}
+                    <p class="text-red-400 text-sm mt-1">{{ form.telefone.errors.0 }}</p>
+                    {% endif %}
+                </div>
+                
+                <!-- Nome do Pai -->
+                <div>
+                    <label for="nome_do_pai" class="block text-sm font-medium text-gray-300 mb-2">
+                        Nome do Pai
+                    </label>
+                    <input 
+                        type="text" 
+                        id="nome_do_pai" 
+                        name="nome_do_pai" 
+                        value="{{ driver.nome_do_pai|default:'' }}"
+                        class="w-full bg-gray-700 text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                        placeholder="Nome completo do pai">
+                    {% if form.nome_do_pai.errors %}
+                    <p class="text-red-400 text-sm mt-1">{{ form.nome_do_pai.errors.0 }}</p>
+                    {% endif %}
+                </div>
+                
+                <!-- Nome da Mãe -->
+                <div>
+                    <label for="nome_da_mae" class="block text-sm font-medium text-gray-300 mb-2">
+                        Nome da Mãe <span class="text-red-500">*</span>
+                    </label>
+                    <input 
+                        type="text" 
+                        id="nome_da_mae" 
+                        name="nome_da_mae" 
+                        value="{{ driver.nome_da_mae|default:'' }}"
+                        required
+                        class="w-full bg-gray-700 text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                        placeholder="Nome completo da mãe">
+                    {% if form.nome_da_mae.errors %}
+                    <p class="text-red-400 text-sm mt-1">{{ form.nome_da_mae.errors.0 }}</p>
+                    {% endif %}
+                </div>
+                
+                <!-- Email -->
+                <div class="md:col-span-2">
+                    <label for="email" class="block text-sm font-medium text-gray-300 mb-2">
+                        E-mail
+                    </label>
+                    <input 
+                        type="email" 
+                        id="email" 
+                        name="email" 
+                        value="{{ driver.email|default:'' }}"
+                        class="w-full bg-gray-700 text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                        placeholder="email@exemplo.com">
+                    {% if form.email.errors %}
+                    <p class="text-red-400 text-sm mt-1">{{ form.email.errors.0 }}</p>
+                    {% endif %}
+                </div>
+                
+                <!-- Endereço -->
+                <div class="md:col-span-2">
+                    <label for="endereco" class="block text-sm font-medium text-gray-300 mb-2">
+                        Endereço Completo
+                    </label>
+                    <textarea 
+                        id="endereco" 
+                        name="endereco" 
+                        rows="3"
+                        class="w-full bg-gray-700 text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                        placeholder="Rua, número, complemento, bairro, cidade, estado, CEP">{{ driver.endereco|default:'' }}</textarea>
+                    {% if form.endereco.errors %}
+                    <p class="text-red-400 text-sm mt-1">{{ form.endereco.errors.0 }}</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Habilitação -->
+        <div class="bg-gray-800 rounded-lg shadow-lg p-6">
+            <h3 class="text-xl font-bold text-white mb-6 flex items-center">
+                <i class="fas fa-id-card text-primary-500 mr-2"></i>
+                Habilitação (CNH)
+            </h3>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- CNH -->
+                <div>
+                    <label for="cnh" class="block text-sm font-medium text-gray-300 mb-2">
+                        Número da CNH <span class="text-red-500">*</span>
+                    </label>
+                    <input 
+                        type="text" 
+                        id="cnh" 
+                        name="cnh" 
+                        value="{{ driver.cnh|default:'' }}"
+                        x-mask="99999999999"
+                        required
+                        maxlength="11"
+                        class="w-full bg-gray-700 text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                        placeholder="11 dígitos">
+                    {% if form.cnh.errors %}
+                    <p class="text-red-400 text-sm mt-1">{{ form.cnh.errors.0 }}</p>
+                    {% endif %}
+                    <p class="text-gray-400 text-xs mt-1">Apenas números, 11 dígitos</p>
+                </div>
+                
+                <!-- Tipo de Veículo -->
+                <div>
+                    <label for="tipo_de_veiculo" class="block text-sm font-medium text-gray-300 mb-2">
+                        Tipo de Veículo Habilitado <span class="text-red-500">*</span>
+                    </label>
+                    <select 
+                        id="tipo_de_veiculo" 
+                        name="tipo_de_veiculo" 
+                        required
+                        class="w-full bg-gray-700 text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                        <option value="">Selecione...</option>
+                        <option value="Caminhão" {% if driver.tipo_de_veiculo == 'Caminhão' %}selected{% endif %}>Caminhão</option>
+                        <option value="Carreta" {% if driver.tipo_de_veiculo == 'Carreta' %}selected{% endif %}>Carreta</option>
+                        <option value="Bitrem" {% if driver.tipo_de_veiculo == 'Bitrem' %}selected{% endif %}>Bitrem</option>
+                        <option value="Rodotrem" {% if driver.tipo_de_veiculo == 'Rodotrem' %}selected{% endif %}>Rodotrem</option>
+                        <option value="VUC" {% if driver.tipo_de_veiculo == 'VUC' %}selected{% endif %}>VUC (Veículo Urbano de Carga)</option>
+                        <option value="Toco" {% if driver.tipo_de_veiculo == 'Toco' %}selected{% endif %}>Caminhão Toco</option>
+                        <option value="Truck" {% if driver.tipo_de_veiculo == 'Truck' %}selected{% endif %}>Caminhão Truck</option>
+                    </select>
+                    {% if form.tipo_de_veiculo.errors %}
+                    <p class="text-red-400 text-sm mt-1">{{ form.tipo_de_veiculo.errors.0 }}</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Observações e Status -->
+        <div class="bg-gray-800 rounded-lg shadow-lg p-6">
+            <h3 class="text-xl font-bold text-white mb-6 flex items-center">
+                <i class="fas fa-clipboard text-primary-500 mr-2"></i>
+                Informações Adicionais
+            </h3>
+            
+            <div class="space-y-6">
+                <!-- Observações -->
+                <div>
+                    <label for="observacoes" class="block text-sm font-medium text-gray-300 mb-2">
+                        Observações
+                    </label>
+                    <textarea 
+                        id="observacoes" 
+                        name="observacoes" 
+                        rows="4"
+                        class="w-full bg-gray-700 text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                        placeholder="Informações adicionais sobre o motorista...">{{ driver.observacoes|default:'' }}</textarea>
+                    {% if form.observacoes.errors %}
+                    <p class="text-red-400 text-sm mt-1">{{ form.observacoes.errors.0 }}</p>
+                    {% endif %}
+                </div>
+                
+                <!-- Status -->
+                <div>
+                    <label class="flex items-center space-x-3">
+                        <input 
+                            type="checkbox" 
+                            name="is_active" 
+                            {% if not driver or driver.is_active %}checked{% endif %}
+                            class="w-5 h-5 bg-gray-700 border-gray-600 rounded text-primary-500 focus:ring-2 focus:ring-primary-500">
+                        <span class="text-gray-300">Motorista Ativo</span>
+                    </label>
+                    <p class="text-gray-400 text-sm mt-2 ml-8">Motoristas inativos não podem ser designados para viagens</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Actions -->
+        <div class="flex justify-end gap-4">
+            <a href="{% if driver %}{% url 'drivers-detail' driver.pk %}{% else %}{% url 'drivers-list' %}{% endif %}" class="px-6 py-3 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors">
+                <i class="fas fa-times mr-2"></i>Cancelar
+            </a>
+            <button type="submit" class="px-6 py-3 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors">
+                <i class="fas fa-save mr-2"></i>{% if driver %}Atualizar{% else %}Cadastrar{% endif %} Motorista
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+function driverForm() {
+    return {
+        init() {
+            console.log('Driver form initialized');
+        }
+    };
+}
+</script>
+{% endblock %}

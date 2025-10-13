@@ -1,0 +1,264 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard - Sistema Integrador GR{% endblock %}
+
+{% block page_title %}Dashboard{% endblock %}
+
+{% block breadcrumbs %}
+<nav class="flex mb-6" aria-label="Breadcrumb">
+    <ol class="inline-flex items-center space-x-1 md:space-x-3">
+        <li class="inline-flex items-center">
+            <span class="text-gray-700 font-medium">
+                <i class="fas fa-home mr-2"></i>
+                Dashboard
+            </span>
+        </li>
+    </ol>
+</nav>
+{% endblock %}
+
+{% block content %}
+
+<!-- Stats Cards -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+    
+    <!-- Viagens Ativas -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
+        <div class="flex items-center justify-between mb-4">
+            <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                <i class="fas fa-truck text-blue-600 text-xl"></i>
+            </div>
+            <span class="text-sm font-medium text-green-600 bg-green-100 px-2 py-1 rounded-full">
+                +12%
+            </span>
+        </div>
+        <h3 class="text-gray-600 text-sm font-medium mb-1">Viagens Ativas</h3>
+        <p class="text-3xl font-bold text-gray-900">{{ active_trips|default:0 }}</p>
+        <p class="text-xs text-gray-500 mt-2">{{ in_progress_trips|default:0 }} em andamento</p>
+    </div>
+    
+    <!-- Motoristas Ativos -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
+        <div class="flex items-center justify-between mb-4">
+            <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                <i class="fas fa-user-tie text-green-600 text-xl"></i>
+            </div>
+            <span class="text-sm font-medium text-blue-600 bg-blue-100 px-2 py-1 rounded-full">
+                {{ active_drivers|default:0 }}
+            </span>
+        </div>
+        <h3 class="text-gray-600 text-sm font-medium mb-1">Motoristas Ativos</h3>
+        <p class="text-3xl font-bold text-gray-900">{{ total_drivers|default:0 }}</p>
+        <p class="text-xs text-gray-500 mt-2">De {{ total_drivers|default:0 }} cadastrados</p>
+    </div>
+    
+    <!-- Veículos Disponíveis -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
+        <div class="flex items-center justify-between mb-4">
+            <div class="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
+                <i class="fas fa-car text-purple-600 text-xl"></i>
+            </div>
+            <span class="text-sm font-medium text-purple-600 bg-purple-100 px-2 py-1 rounded-full">
+                {{ available_vehicles|default:0 }}
+            </span>
+        </div>
+        <h3 class="text-gray-600 text-sm font-medium mb-1">Veículos Disponíveis</h3>
+        <p class="text-3xl font-bold text-gray-900">{{ total_vehicles|default:0 }}</p>
+        <p class="text-xs text-gray-500 mt-2">{{ vehicles_in_trip|default:0 }} em viagem</p>
+    </div>
+    
+    <!-- Rastreadores Ativos -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
+        <div class="flex items-center justify-between mb-4">
+            <div class="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
+                <i class="fas fa-satellite-dish text-yellow-600 text-xl"></i>
+            </div>
+            <span class="text-sm font-medium text-red-600 bg-red-100 px-2 py-1 rounded-full">
+                {{ outdated_devices|default:0 }} offline
+            </span>
+        </div>
+        <h3 class="text-gray-600 text-sm font-medium mb-1">Rastreadores Ativos</h3>
+        <p class="text-3xl font-bold text-gray-900">{{ active_devices|default:0 }}</p>
+        <p class="text-xs text-gray-500 mt-2">{{ updated_devices|default:0 }} atualizados</p>
+    </div>
+    
+</div>
+
+<!-- Content Grid -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    
+    <!-- Main Column -->
+    <div class="lg:col-span-2 space-y-6">
+        
+        <!-- Recent Trips -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200">
+            <div class="flex items-center justify-between p-6 border-b border-gray-200">
+                <h3 class="text-lg font-bold text-gray-900">Viagens Recentes</h3>
+                <a href="{% url 'monitoring_list' %}" class="text-sm text-primary-600 hover:text-primary-700 font-medium">
+                    Ver todas <i class="fas fa-arrow-right ml-1"></i>
+                </a>
+            </div>
+            
+            <div class="divide-y divide-gray-100">
+                {% if recent_trips %}
+                    {% for trip in recent_trips %}
+                    <div class="p-4 hover:bg-gray-50 transition-colors">
+                        <div class="flex items-start justify-between">
+                            <div class="flex items-start space-x-4">
+                                <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center text-white font-bold">
+                                    <i class="fas fa-route"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <h4 class="font-medium text-gray-900">{{ trip.name }}</h4>
+                                    <div class="flex items-center space-x-4 mt-1 text-sm text-gray-600">
+                                        <span><i class="fas fa-user-tie mr-1"></i>{{ trip.driver.nome }}</span>
+                                        <span><i class="fas fa-truck mr-1"></i>{{ trip.vehicle.placa }}</span>
+                                    </div>
+                                    <div class="flex items-center space-x-2 mt-2 text-xs text-gray-500">
+                                        <span><i class="fas fa-map-marker-alt mr-1"></i>{{ trip.route.origin_city }}</span>
+                                        <i class="fas fa-arrow-right"></i>
+                                        <span>{{ trip.route.destination_city }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                                    {% if trip.status == 'EM_ANDAMENTO' %}bg-green-100 text-green-800
+                                    {% elif trip.status == 'PLANEJADO' %}bg-blue-100 text-blue-800
+                                    {% elif trip.status == 'CONCLUIDO' %}bg-gray-100 text-gray-800
+                                    {% else %}bg-red-100 text-red-800{% endif %}">
+                                    {{ trip.get_status_display }}
+                                </span>
+                                <p class="text-xs text-gray-500 mt-2">{{ trip.created_at|date:"d/m/Y H:i" }}</p>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="p-8 text-center text-gray-500">
+                        <i class="fas fa-inbox text-4xl mb-3 text-gray-300"></i>
+                        <p>Nenhuma viagem recente</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Quick Actions -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h3 class="text-lg font-bold text-gray-900 mb-4">Ações Rápidas</h3>
+            
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <a href="{% url 'monitoring_create' %}" class="flex flex-col items-center p-4 bg-primary-50 rounded-lg hover:bg-primary-100 transition-colors group">
+                    <div class="w-12 h-12 bg-primary-500 rounded-lg flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                        <i class="fas fa-plus text-white text-xl"></i>
+                    </div>
+                    <span class="text-sm font-medium text-gray-700 text-center">Nova Viagem</span>
+                </a>
+                
+                <a href="{% url 'drivers-create' %}" class="flex flex-col items-center p-4 bg-green-50 rounded-lg hover:bg-green-100 transition-colors group">
+                    <div class="w-12 h-12 bg-green-500 rounded-lg flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                        <i class="fas fa-user-plus text-white text-xl"></i>
+                    </div>
+                    <span class="text-sm font-medium text-gray-700 text-center">Novo Motorista</span>
+                </a>
+                
+                <a href="{% url 'vehicles-create' %}" class="flex flex-col items-center p-4 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors group">
+                    <div class="w-12 h-12 bg-purple-500 rounded-lg flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                        <i class="fas fa-truck text-white text-xl"></i>
+                    </div>
+                    <span class="text-sm font-medium text-gray-700 text-center">Novo Veículo</span>
+                </a>
+                
+                <a href="{% url 'routes-create' %}" class="flex flex-col items-center p-4 bg-yellow-50 rounded-lg hover:bg-yellow-100 transition-colors group">
+                    <div class="w-12 h-12 bg-yellow-500 rounded-lg flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                        <i class="fas fa-route text-white text-xl"></i>
+                    </div>
+                    <span class="text-sm font-medium text-gray-700 text-center">Nova Rota</span>
+                </a>
+            </div>
+        </div>
+        
+    </div>
+    
+    <!-- Sidebar Column -->
+    <div class="space-y-6">
+        
+        <!-- Alerts -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200">
+            <div class="p-6 border-b border-gray-200">
+                <h3 class="text-lg font-bold text-gray-900">Alertas</h3>
+            </div>
+            
+            <div class="divide-y divide-gray-100">
+                <!-- Sample alerts -->
+                <div class="p-4">
+                    <div class="flex items-start space-x-3">
+                        <div class="flex-shrink-0 w-2 h-2 mt-2 bg-red-500 rounded-full"></div>
+                        <div class="flex-1">
+                            <p class="text-sm font-medium text-gray-900">Rastreador offline</p>
+                            <p class="text-xs text-gray-600 mt-1">Veículo ABC1234 sem sinal há 2 horas</p>
+                            <p class="text-xs text-gray-400 mt-1">Há 5 minutos</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="p-4">
+                    <div class="flex items-start space-x-3">
+                        <div class="flex-shrink-0 w-2 h-2 mt-2 bg-yellow-500 rounded-full"></div>
+                        <div class="flex-1">
+                            <p class="text-sm font-medium text-gray-900">Motorista inativo</p>
+                            <p class="text-xs text-gray-600 mt-1">João Silva sem viagens há 15 dias</p>
+                            <p class="text-xs text-gray-400 mt-1">Há 1 hora</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="p-4">
+                    <div class="flex items-start space-x-3">
+                        <div class="flex-shrink-0 w-2 h-2 mt-2 bg-blue-500 rounded-full"></div>
+                        <div class="flex-1">
+                            <p class="text-sm font-medium text-gray-900">Viagem concluída</p>
+                            <p class="text-xs text-gray-600 mt-1">SP-RJ finalizada com sucesso</p>
+                            <p class="text-xs text-gray-400 mt-1">Há 2 horas</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- System Status -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h3 class="text-lg font-bold text-gray-900 mb-4">Status do Sistema</h3>
+            
+            <div class="space-y-4">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                        <span class="text-sm text-gray-700">API Suntech</span>
+                    </div>
+                    <span class="text-xs text-green-600 font-medium">Online</span>
+                </div>
+                
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                        <span class="text-sm text-gray-700">Serviço OSM/OSRM</span>
+                    </div>
+                    <span class="text-xs text-green-600 font-medium">Online</span>
+                </div>
+                
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                        <span class="text-sm text-gray-700">Banco de Dados</span>
+                    </div>
+                    <span class="text-xs text-green-600 font-medium">Online</span>
+                </div>
+            </div>
+        </div>
+        
+    </div>
+    
+</div>
+
+{% endblock %}

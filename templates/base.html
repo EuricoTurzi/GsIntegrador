@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{% block title %}Sistema Integrador - GR{% endblock %}</title>
+
+    <!-- Tailwind CSS via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Alpine.js para interatividade -->
+    <script
+      defer
+      src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"
+    ></script>
+
+    <!-- Font Awesome para ícones -->
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
+
+    <!-- Leaflet para mapas -->
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <!-- Custom Tailwind Config -->
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              primary: {
+                50: "#f0f9ff",
+                100: "#e0f2fe",
+                200: "#bae6fd",
+                300: "#7dd3fc",
+                400: "#38bdf8",
+                500: "#0ea5e9",
+                600: "#0284c7",
+                700: "#0369a1",
+                800: "#075985",
+                900: "#0c4a6e",
+              },
+              secondary: {
+                50: "#fefce8",
+                100: "#fef9c3",
+                200: "#fef08a",
+                300: "#fde047",
+                400: "#facc15",
+                500: "#eab308",
+                600: "#ca8a04",
+                700: "#a16207",
+                800: "#854d0e",
+                900: "#713f12",
+              },
+            },
+          },
+        },
+      };
+    </script>
+
+    <style>
+      /* Custom scrollbar */
+      ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #f1f5f9;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 4px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #94a3b8;
+      }
+
+      /* Smooth transitions */
+      * {
+        transition: all 0.2s ease-in-out;
+      }
+    </style>
+
+    {% block extra_css %}{% endblock %}
+  </head>
+  <body
+    class="bg-gray-50 font-sans antialiased"
+    x-data="{ sidebarOpen: true, userMenuOpen: false }"
+  >
+    {% if user.is_authenticated %}
+    <!-- Sidebar -->
+    {% include 'partials/sidebar.html' %}
+
+    <!-- Main Content -->
+    <div
+      :class="sidebarOpen ? 'ml-64' : 'ml-20'"
+      class="transition-all duration-300 min-h-screen"
+    >
+      <!-- Top Navbar -->
+      {% include 'partials/navbar.html' %}
+
+      <!-- Page Content -->
+      <main class="p-4 md:p-6 lg:p-8">
+        <!-- Breadcrumbs -->
+        {% block breadcrumbs %}{% endblock %}
+
+        <!-- Messages/Alerts -->
+        {% if messages %}
+        <div class="mb-6 space-y-2">
+          {% for message in messages %}
+          <div
+            class="flex items-center p-4 rounded-lg {% if message.tags == 'error' %}bg-red-50 text-red-800{% elif message.tags == 'success' %}bg-green-50 text-green-800{% elif message.tags == 'warning' %}bg-yellow-50 text-yellow-800{% else %}bg-blue-50 text-blue-800{% endif %}"
+            x-data="{ show: true }"
+            x-show="show"
+            x-transition
+          >
+            <i
+              class="fas {% if message.tags == 'error' %}fa-circle-exclamation{% elif message.tags == 'success' %}fa-circle-check{% elif message.tags == 'warning' %}fa-triangle-exclamation{% else %}fa-info-circle{% endif %} mr-3"
+            ></i>
+            <span class="flex-1">{{ message }}</span>
+            <button
+              @click="show = false"
+              class="ml-4 text-gray-500 hover:text-gray-700"
+            >
+              <i class="fas fa-times"></i>
+            </button>
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Page Content -->
+        {% block content %}{% endblock %}
+      </main>
+
+      <!-- Footer -->
+      {% include 'partials/footer.html' %}
+    </div>
+    {% else %}
+    <!-- Public pages (login/register) -->
+    <main class="min-h-screen">{% block public_content %}{% endblock %}</main>
+    {% endif %} {% block extra_js %}{% endblock %}
+  </body>
+</html>

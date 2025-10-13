@@ -1,0 +1,437 @@
+{% extends 'base.html' %}
+{% load route_filters %}
+
+{% block title %}{{ route.name }} - Rotas{% endblock %}
+
+{% block extra_head %}
+<!-- Leaflet CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+     integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+     crossorigin=""/>
+{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-6">
+    <!-- Header -->
+    <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+        <div class="flex items-start justify-between">
+            <div class="flex-1">
+                <div class="flex items-center mb-2">
+                    <a href="{% url 'routes-list' %}" class="text-gray-500 hover:text-gray-700 mr-3">
+                        <i class="fas fa-arrow-left"></i>
+                    </a>
+                    <h1 class="text-3xl font-bold text-gray-800">{{ route.name }}</h1>
+                </div>
+                
+                {% if route.description %}
+                <p class="text-gray-600 mb-4">{{ route.description }}</p>
+                {% endif %}
+                
+                <!-- Status Badge -->
+                <div class="flex items-center gap-4">
+                    {% if route.is_active %}
+                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
+                        <i class="fas fa-check-circle mr-2"></i> Ativa
+                    </span>
+                    {% else %}
+                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800">
+                        <i class="fas fa-times-circle mr-2"></i> Inativa
+                    </span>
+                    {% endif %}
+                    
+                    <span class="text-sm text-gray-500">
+                        <i class="far fa-calendar-alt mr-1"></i>
+                        Criada em {{ route.created_at|date:"d/m/Y H:i" }}
+                    </span>
+                </div>
+            </div>
+            
+            <!-- Actions -->
+            <div class="flex gap-2 ml-4">
+                <a href="{% url 'routes-edit' route.pk %}" 
+                   class="inline-flex items-center px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors">
+                    <i class="fas fa-edit mr-2"></i> Editar
+                </a>
+                <button onclick="deleteRoute()" 
+                        class="inline-flex items-center px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors">
+                    <i class="fas fa-trash-alt mr-2"></i> Excluir
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Main Content -->
+        <div class="lg:col-span-2 space-y-6">
+            <!-- Map -->
+            <div class="bg-white rounded-lg shadow-md overflow-hidden">
+                <div class="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-6 py-4">
+                    <h2 class="text-xl font-semibold flex items-center">
+                        <i class="fas fa-map-marked-alt mr-2"></i> Visualização da Rota
+                    </h2>
+                </div>
+                <div class="p-4">
+                    <div id="route-map" style="height: 500px;" class="rounded-lg"></div>
+                </div>
+            </div>
+
+            <!-- Route Points -->
+            <div class="bg-white rounded-lg shadow-md overflow-hidden">
+                <div class="bg-gradient-to-r from-blue-500 to-indigo-500 text-white px-6 py-4">
+                    <h2 class="text-xl font-semibold flex items-center">
+                        <i class="fas fa-route mr-2"></i> Pontos da Rota
+                    </h2>
+                </div>
+                <div class="p-6">
+                    <!-- Origin -->
+                    <div class="mb-6">
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0">
+                                <div class="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                                    <i class="fas fa-map-marker-alt text-green-600 text-lg"></i>
+                                </div>
+                            </div>
+                            <div class="ml-4 flex-1">
+                                <h3 class="text-lg font-semibold text-gray-800 mb-1">Origem</h3>
+                                <p class="text-gray-900 font-medium">{{ route.origin_name }}</p>
+                                {% if route.origin_address %}
+                                <p class="text-gray-600 text-sm mt-1">
+                                    <i class="fas fa-map-pin mr-1"></i> {{ route.origin_address }}
+                                </p>
+                                {% endif %}
+                                <p class="text-gray-500 text-xs mt-1">
+                                    <i class="fas fa-globe mr-1"></i> 
+                                    {{ route.origin_latitude|floatformat:6 }}, {{ route.origin_longitude|floatformat:6 }}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Distance Indicator -->
+                    <div class="flex items-center justify-center my-4">
+                        <div class="flex-1 border-t-2 border-dashed border-gray-300"></div>
+                        <div class="px-4 py-2 bg-blue-50 rounded-lg mx-4">
+                            <p class="text-sm text-gray-600">Distância</p>
+                            <p class="text-lg font-bold text-blue-600">{{ route.distance_km }} km</p>
+                        </div>
+                        <div class="flex-1 border-t-2 border-dashed border-gray-300"></div>
+                    </div>
+
+                    <!-- Destination -->
+                    <div>
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0">
+                                <div class="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+                                    <i class="fas fa-map-marker-alt text-red-600 text-lg"></i>
+                                </div>
+                            </div>
+                            <div class="ml-4 flex-1">
+                                <h3 class="text-lg font-semibold text-gray-800 mb-1">Destino</h3>
+                                <p class="text-gray-900 font-medium">{{ route.destination_name }}</p>
+                                {% if route.destination_address %}
+                                <p class="text-gray-600 text-sm mt-1">
+                                    <i class="fas fa-map-pin mr-1"></i> {{ route.destination_address }}
+                                </p>
+                                {% endif %}
+                                <p class="text-gray-500 text-xs mt-1">
+                                    <i class="fas fa-globe mr-1"></i> 
+                                    {{ route.destination_latitude|floatformat:6 }}, {{ route.destination_longitude|floatformat:6 }}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="lg:col-span-1 space-y-6">
+            <!-- Stats -->
+            <div class="bg-white rounded-lg shadow-md overflow-hidden">
+                <div class="bg-gradient-to-r from-orange-500 to-red-500 text-white px-6 py-4">
+                    <h2 class="text-xl font-semibold flex items-center">
+                        <i class="fas fa-chart-line mr-2"></i> Estatísticas
+                    </h2>
+                </div>
+                <div class="p-6 space-y-4">
+                    <!-- Distance -->
+                    <div class="flex items-center justify-between p-4 bg-blue-50 rounded-lg">
+                        <div class="flex items-center">
+                            <div class="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                                <i class="fas fa-route text-blue-600"></i>
+                            </div>
+                            <div class="ml-3">
+                                <p class="text-sm text-gray-600">Distância</p>
+                                <p class="text-lg font-bold text-gray-900">{{ route.distance_km }} km</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Duration -->
+                    <div class="flex items-center justify-between p-4 bg-purple-50 rounded-lg">
+                        <div class="flex items-center">
+                            <div class="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
+                                <i class="fas fa-clock text-purple-600"></i>
+                            </div>
+                            <div class="ml-3">
+                                <p class="text-sm text-gray-600">Tempo Estimado</p>
+                                <p class="text-lg font-bold text-gray-900">{{ route.estimated_duration_hours|format_duration }}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Average Speed -->
+                    <div class="flex items-center justify-between p-4 bg-green-50 rounded-lg">
+                        <div class="flex items-center">
+                            <div class="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                                <i class="fas fa-tachometer-alt text-green-600"></i>
+                            </div>
+                            <div class="ml-3">
+                                <p class="text-sm text-gray-600">Velocidade Média</p>
+                                <p class="text-lg font-bold text-gray-900">60 km/h</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Info -->
+            <div class="bg-white rounded-lg shadow-md overflow-hidden">
+                <div class="bg-gradient-to-r from-gray-500 to-gray-700 text-white px-6 py-4">
+                    <h2 class="text-xl font-semibold flex items-center">
+                        <i class="fas fa-info-circle mr-2"></i> Informações
+                    </h2>
+                </div>
+                <div class="p-6 space-y-3 text-sm">
+                    <div class="flex justify-between border-b border-gray-200 pb-2">
+                        <span class="text-gray-600">Transportadora:</span>
+                        <span class="font-medium text-gray-900">{{ route.transportadora.username }}</span>
+                    </div>
+                    <div class="flex justify-between border-b border-gray-200 pb-2">
+                        <span class="text-gray-600">Status:</span>
+                        <span class="font-medium {% if route.is_active %}text-green-600{% else %}text-gray-600{% endif %}">
+                            {% if route.is_active %}Ativa{% else %}Inativa{% endif %}
+                        </span>
+                    </div>
+                    <div class="flex justify-between border-b border-gray-200 pb-2">
+                        <span class="text-gray-600">Criada em:</span>
+                        <span class="font-medium text-gray-900">{{ route.created_at|date:"d/m/Y" }}</span>
+                    </div>
+                    {% if route.updated_at != route.created_at %}
+                    <div class="flex justify-between border-b border-gray-200 pb-2">
+                        <span class="text-gray-600">Atualizada em:</span>
+                        <span class="font-medium text-gray-900">{{ route.updated_at|date:"d/m/Y" }}</span>
+                    </div>
+                    {% endif %}
+                    {% if route.last_calculated_at %}
+                    <div class="flex justify-between border-b border-gray-200 pb-2">
+                        <span class="text-gray-600">Última Calculada:</span>
+                        <span class="font-medium text-gray-900">{{ route.last_calculated_at|date:"d/m/Y H:i" }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="bg-white rounded-lg shadow-md overflow-hidden">
+                <div class="bg-gradient-to-r from-indigo-500 to-purple-500 text-white px-6 py-4">
+                    <h2 class="text-xl font-semibold flex items-center">
+                        <i class="fas fa-tools mr-2"></i> Ações
+                    </h2>
+                </div>
+                <div class="p-4 space-y-2">
+                    <a href="{% url 'routes-edit' route.pk %}" 
+                       class="block w-full text-center px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors">
+                        <i class="fas fa-edit mr-2"></i> Editar Rota
+                    </a>
+                    <button onclick="deleteRoute()" 
+                            class="block w-full text-center px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors">
+                        <i class="fas fa-trash-alt mr-2"></i> Excluir Rota
+                    </button>
+                    <a href="{% url 'routes-list' %}" 
+                       class="block w-full text-center px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-colors">
+                        <i class="fas fa-arrow-left mr-2"></i> Voltar à Lista
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Form -->
+<form id="deleteForm" method="post" action="{% url 'routes-delete' route.pk %}" style="display: none;">
+    {% csrf_token %}
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+     integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+     crossorigin=""></script>
+
+<script>
+// Wait for everything to load including Leaflet library
+window.addEventListener('load', function() {
+    // Small delay to ensure container is rendered
+    setTimeout(function() {
+        try {
+            // Definir coordenadas
+            var originLat = parseFloat('{{ origin_lat|stringformat:"f" }}');
+            var originLng = parseFloat('{{ origin_lng|stringformat:"f" }}');
+            var destLat = parseFloat('{{ dest_lat|stringformat:"f" }}');
+            var destLng = parseFloat('{{ dest_lng|stringformat:"f" }}');
+            
+            console.log('Origin:', originLat, originLng);
+            console.log('Dest:', destLat, destLng);
+            
+            if (!originLat || !originLng) {
+                throw new Error('Coordenadas de origem inválidas');
+            }
+            
+            // Initialize map
+            var map = L.map('route-map').setView([originLat, originLng], 13);
+            
+            // Add tile layer (OpenStreetMap)
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+                maxZoom: 19
+            }).addTo(map);
+            
+            // Force map to recalculate size
+            setTimeout(function() {
+                map.invalidateSize();
+            }, 100);
+    
+    // Custom icons
+    var greenIcon = L.icon({
+        iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
+        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+        iconSize: [25, 41],
+        iconAnchor: [12, 41],
+        popupAnchor: [1, -34],
+        shadowSize: [41, 41]
+    });
+    
+    var redIcon = L.icon({
+        iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+        iconSize: [25, 41],
+        iconAnchor: [12, 41],
+        popupAnchor: [1, -34],
+        shadowSize: [41, 41]
+    });
+    
+    // Add origin marker
+    var originMarker = L.marker(
+        [originLat, originLng],
+        { icon: greenIcon }
+    ).addTo(map);
+    
+    originMarker.bindPopup(`
+        <div class="p-2">
+            <strong class="text-green-600">Origem</strong><br>
+            <strong>{{ route.origin_name }}</strong><br>
+            {% if route.origin_address %}
+            <span class="text-sm text-gray-600">{{ route.origin_address }}</span><br>
+            {% endif %}
+            <span class="text-xs text-gray-500">
+                {{ route.origin_latitude|floatformat:6 }}, {{ route.origin_longitude|floatformat:6 }}
+            </span>
+        </div>
+    `);
+    
+    // Add destination marker
+    var destMarker = L.marker(
+        [destLat, destLng],
+        { icon: redIcon }
+    ).addTo(map);
+    
+    destMarker.bindPopup(`
+        <div class="p-2">
+            <strong class="text-red-600">Destino</strong><br>
+            <strong>{{ route.destination_name }}</strong><br>
+            {% if route.destination_address %}
+            <span class="text-sm text-gray-600">{{ route.destination_address }}</span><br>
+            {% endif %}
+            <span class="text-xs text-gray-500">
+                {{ route.destination_latitude|floatformat:6 }}, {{ route.destination_longitude|floatformat:6 }}
+            </span>
+        </div>
+    `);
+    
+    // Draw route line
+    {% if route.route_geometry %}
+    // Se temos a geometria real da rota (GeoJSON), desenhar ela
+    try {
+        var routeGeometry = {{ route.route_geometry|safe }};
+        console.log('Route geometry:', routeGeometry);
+        
+        if (routeGeometry && routeGeometry.coordinates) {
+            // Converter GeoJSON LineString para array de LatLng do Leaflet
+            var routeCoords = routeGeometry.coordinates.map(function(coord) {
+                return [coord[1], coord[0]]; // GeoJSON é [lng, lat], Leaflet é [lat, lng]
+            });
+            
+            var routeLine = L.polyline(routeCoords, {
+                color: '#3b82f6',
+                weight: 5,
+                opacity: 0.7
+            }).addTo(map);
+            
+            // Ajustar bounds para mostrar toda a rota
+            map.fitBounds(routeLine.getBounds(), { padding: [50, 50] });
+        }
+    } catch (e) {
+        console.error('Erro ao desenhar geometria da rota:', e);
+        // Fallback: linha reta
+        var routeLine = L.polyline([
+            [originLat, originLng],
+            [destLat, destLng]
+        ], {
+            color: '#3b82f6',
+            weight: 3,
+            opacity: 0.7,
+            dashArray: '10, 10'
+        }).addTo(map);
+        
+        var bounds = L.latLngBounds([
+            [originLat, originLng],
+            [destLat, destLng]
+        ]);
+        map.fitBounds(bounds, { padding: [50, 50] });
+    }
+    {% else %}
+    // Sem geometria salva, desenhar linha reta tracejada
+    var routeLine = L.polyline([
+        [originLat, originLng],
+        [destLat, destLng]
+    ], {
+        color: '#3b82f6',
+        weight: 3,
+        opacity: 0.7,
+        dashArray: '10, 10'
+    }).addTo(map);
+    
+    var bounds = L.latLngBounds([
+        [originLat, originLng],
+        [destLat, destLng]
+    ]);
+    map.fitBounds(bounds, { padding: [50, 50] });
+    {% endif %}
+            
+        } catch (error) {
+            console.error('Erro ao inicializar mapa:', error);
+            document.getElementById('route-map').innerHTML = '<div class="flex items-center justify-center h-full text-red-500"><p>Erro ao carregar o mapa. Tente recarregar a página.</p></div>';
+        }
+    }, 250); // Small delay
+    
+    // Delete route function (outside setTimeout to be immediately available)
+    window.deleteRoute = function() {
+        if (confirm('Tem certeza que deseja excluir esta rota?\n\nRota: {{ route.name }}\nOrigem: {{ route.origin_name }}\nDestino: {{ route.destination_name }}\n\nEsta ação não pode ser desfeita.')) {
+            document.getElementById('deleteForm').submit();
+        }
+    };
+}); // End window.load
+</script>
+{% endblock %}

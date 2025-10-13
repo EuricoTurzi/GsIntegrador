@@ -1,0 +1,533 @@
+{% extends 'base.html' %} {% block title %}{{ vehicle.placa }} - Veículos - GR
+System{% endblock %} {% block page_title %}Detalhes do Veículo{% endblock %} {%
+block breadcrumbs %}
+<nav class="flex mb-4" aria-label="Breadcrumb">
+  <ol class="inline-flex items-center space-x-1 md:space-x-3">
+    <li class="inline-flex items-center">
+      <a
+        href="{% url 'dashboard' %}"
+        class="text-gray-400 hover:text-primary-500"
+      >
+        <i class="fas fa-home mr-2"></i>Dashboard
+      </a>
+    </li>
+    <li>
+      <div class="flex items-center">
+        <i class="fas fa-chevron-right text-gray-400 mx-2"></i>
+        <a
+          href="{% url 'vehicles-list' %}"
+          class="text-gray-400 hover:text-primary-500"
+          >Veículos</a
+        >
+      </div>
+    </li>
+    <li>
+      <div class="flex items-center">
+        <i class="fas fa-chevron-right text-gray-400 mx-2"></i>
+        <span class="text-white">{{ vehicle.placa }}</span>
+      </div>
+    </li>
+  </ol>
+</nav>
+{% endblock %} {% block content %}
+<div class="space-y-6">
+  <!-- Header with Actions -->
+  <div class="bg-gray-800 rounded-lg shadow-lg p-6">
+    <div
+      class="flex flex-col md:flex-row items-start md:items-center justify-between"
+    >
+      <div class="flex items-center space-x-4">
+        <div
+          class="h-20 w-20 bg-gray-700 rounded-lg flex items-center justify-center"
+        >
+          <i class="fas fa-truck text-primary-500 text-3xl"></i>
+        </div>
+        <div>
+          <h2 class="text-2xl font-bold text-white">{{ vehicle.placa }}</h2>
+          <p class="text-gray-400">{{ vehicle.modelo }} - {{ vehicle.cor }}</p>
+          <div class="mt-2 flex items-center gap-2">
+            {% if vehicle.status == 'DISPONIVEL' %}
+            <span
+              class="px-3 py-1 inline-flex text-sm font-semibold rounded-full bg-green-100 text-green-800"
+            >
+              <i class="fas fa-check-circle mr-1"></i> Disponível
+            </span>
+            {% elif vehicle.status == 'EM_VIAGEM' %}
+            <span
+              class="px-3 py-1 inline-flex text-sm font-semibold rounded-full bg-yellow-100 text-yellow-800"
+            >
+              <i class="fas fa-route mr-1"></i> Em Viagem
+            </span>
+            {% elif vehicle.status == 'MANUTENCAO' %}
+            <span
+              class="px-3 py-1 inline-flex text-sm font-semibold rounded-full bg-orange-100 text-orange-800"
+            >
+              <i class="fas fa-tools mr-1"></i> Manutenção
+            </span>
+            {% endif %}
+            <span
+              class="px-3 py-1 inline-flex text-sm font-semibold rounded-full bg-red-100 text-red-800"
+            >
+              <i class="fas fa-ban mr-1"></i> Inativo
+            </span>
+            {% endif %} {% if vehicle.device %}
+            <span
+              class="px-3 py-1 inline-flex text-sm font-semibold rounded-full bg-blue-100 text-blue-800"
+            >
+              <i class="fas fa-satellite-dish mr-1"></i> Rastreado
+            </span>
+            {% endblock %}
+          </div>
+        </div>
+      </div>
+      <div class="mt-4 md:mt-0 flex gap-2">
+        <a
+          href="{% url 'vehicles-edit' vehicle.pk %}"
+          class="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors"
+        >
+          <i class="fas fa-edit mr-2"></i>Editar
+        </a>
+        <button
+          onclick="changeStatus()"
+          class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+        >
+          <i class="fas fa-exchange-alt mr-2"></i>Mudar Status
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stats Cards -->
+  <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+    <div
+      class="bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg shadow-lg p-6 text-white"
+    >
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="text-blue-100 text-sm font-medium">Total de Viagens</p>
+          <p class="text-3xl font-bold mt-2">{{ stats.total_trips }}</p>
+        </div>
+        <div class="bg-blue-400 bg-opacity-30 rounded-full p-3">
+          <i class="fas fa-road text-2xl"></i>
+        </div>
+      </div>
+    </div>
+
+    <div
+      class="bg-gradient-to-br from-green-500 to-green-600 rounded-lg shadow-lg p-6 text-white"
+    >
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="text-green-100 text-sm font-medium">Viagens Concluídas</p>
+          <p class="text-3xl font-bold mt-2">{{ stats.completed_trips }}</p>
+        </div>
+        <div class="bg-green-400 bg-opacity-30 rounded-full p-3">
+          <i class="fas fa-check-circle text-2xl"></i>
+        </div>
+      </div>
+    </div>
+
+    <div
+      class="bg-gradient-to-br from-yellow-500 to-yellow-600 rounded-lg shadow-lg p-6 text-white"
+    >
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="text-yellow-100 text-sm font-medium">Em Andamento</p>
+          <p class="text-3xl font-bold mt-2">{{ stats.active_trips }}</p>
+        </div>
+        <div class="bg-yellow-400 bg-opacity-30 rounded-full p-3">
+          <i class="fas fa-truck text-2xl"></i>
+        </div>
+      </div>
+    </div>
+
+    <div
+      class="bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg shadow-lg p-6 text-white"
+    >
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="text-purple-100 text-sm font-medium">Distância Total</p>
+          <p class="text-3xl font-bold mt-2">
+            {{ stats.total_distance|default:"0" }} km
+          </p>
+        </div>
+        <div class="bg-purple-400 bg-opacity-30 rounded-full p-3">
+          <i class="fas fa-map-marked-alt text-2xl"></i>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Informações Principais -->
+    <div class="lg:col-span-2 space-y-6">
+      <!-- Dados do Veículo -->
+      <div class="bg-gray-800 rounded-lg shadow-lg p-6">
+        <h3 class="text-xl font-bold text-white mb-4 flex items-center">
+          <i class="fas fa-truck text-primary-500 mr-2"></i>
+          Dados do Veículo
+        </h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="text-sm text-gray-400">Placa</label>
+            <p class="text-white font-medium text-lg">{{ vehicle.placa }}</p>
+          </div>
+          <div>
+            <label class="text-sm text-gray-400">RENAVAM</label>
+            <p class="text-white font-medium">{{ vehicle.renavam }}</p>
+          </div>
+          <div>
+            <label class="text-sm text-gray-400">Chassi</label>
+            <p class="text-white font-medium">{{ vehicle.chassi }}</p>
+          </div>
+          <div>
+            <label class="text-sm text-gray-400">Modelo</label>
+            <p class="text-white font-medium">{{ vehicle.modelo }}</p>
+          </div>
+          <div>
+            <label class="text-sm text-gray-400">Ano</label>
+            <p class="text-white font-medium">{{ vehicle.ano }}</p>
+          </div>
+          <div>
+            <label class="text-sm text-gray-400">Cor</label>
+            <p class="text-white font-medium">{{ vehicle.cor }}</p>
+          </div>
+          <div>
+            <label class="text-sm text-gray-400">Status</label>
+            <p class="text-white font-medium">
+              {{ vehicle.get_status_display }}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Rastreador -->
+      <div class="bg-gray-800 rounded-lg shadow-lg p-6">
+        <h3 class="text-xl font-bold text-white mb-4 flex items-center">
+          <i class="fas fa-satellite-dish text-primary-500 mr-2"></i>
+          Rastreador
+        </h3>
+        {% if vehicle.device %}
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="text-sm text-gray-400">Identificador</label>
+            <p class="text-white font-medium">
+              {{ vehicle.device.identifier }}
+            </p>
+          </div>
+          <div>
+            <label class="text-sm text-gray-400">IMEI</label>
+            <p class="text-white font-medium">{{ vehicle.device.imei }}</p>
+          </div>
+          <div>
+            <label class="text-sm text-gray-400">Modelo</label>
+            <p class="text-white font-medium">{{ vehicle.device.model }}</p>
+          </div>
+          <div>
+            <label class="text-sm text-gray-400">Última Atualização</label>
+            <p class="text-white font-medium">
+              {% if vehicle.device.last_update %} {{
+              vehicle.device.last_update|date:"d/m/Y H:i" }} {% else %} Nunca {%
+              endif %}
+            </p>
+          </div>
+          <div class="md:col-span-2">
+            <a
+              href="{% url 'devices-detail' vehicle.device.pk %}"
+              class="text-primary-400 hover:text-primary-300"
+            >
+              Ver detalhes do rastreador <i class="fas fa-arrow-right ml-1"></i>
+            </a>
+          </div>
+        </div>
+        {% else %}
+        <div class="text-center py-8 text-gray-400">
+          <i class="fas fa-satellite-dish text-6xl mb-4 text-gray-600"></i>
+          <p class="text-lg font-medium">Nenhum rastreador vinculado</p>
+          <p class="text-sm mt-2">
+            Vincule um rastreador para monitorar este veículo em tempo real
+          </p>
+          <a
+            href="{% url 'devices-create' %}?vehicle={{ vehicle.pk }}"
+            class="inline-block mt-4 px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors"
+          >
+            <i class="fas fa-plus mr-2"></i>Adicionar Rastreador
+          </a>
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- Observações -->
+      {% if vehicle.observacoes %}
+      <div class="bg-gray-800 rounded-lg shadow-lg p-6">
+        <h3 class="text-xl font-bold text-white mb-4 flex items-center">
+          <i class="fas fa-sticky-note text-primary-500 mr-2"></i>
+          Observações
+        </h3>
+        <p class="text-gray-300">{{ vehicle.observacoes }}</p>
+      </div>
+      {% endif %}
+
+      <!-- Histórico de Viagens -->
+      <div class="bg-gray-800 rounded-lg shadow-lg p-6">
+        <h3 class="text-xl font-bold text-white mb-4 flex items-center">
+          <i class="fas fa-history text-primary-500 mr-2"></i>
+          Histórico de Viagens
+        </h3>
+        <div class="overflow-x-auto">
+          <table class="w-full">
+            <thead class="bg-gray-900 border-b border-gray-700">
+              <tr>
+                <th
+                  class="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase"
+                >
+                  Motorista
+                </th>
+                <th
+                  class="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase"
+                >
+                  Origem
+                </th>
+                <th
+                  class="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase"
+                >
+                  Destino
+                </th>
+                <th
+                  class="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase"
+                >
+                  Data
+                </th>
+                <th
+                  class="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase"
+                >
+                  Status
+                </th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-700">
+              {% for trip in recent_trips %}
+              <tr class="hover:bg-gray-750">
+                <td class="px-4 py-3 text-sm text-gray-300">
+                  {{ trip.driver.nome }}
+                </td>
+                <td class="px-4 py-3 text-sm text-gray-300">
+                  {{ trip.origin }}
+                </td>
+                <td class="px-4 py-3 text-sm text-gray-300">
+                  {{ trip.destination }}
+                </td>
+                <td class="px-4 py-3 text-sm text-gray-400">
+                  {{ trip.date|date:"d/m/Y" }}
+                </td>
+                <td class="px-4 py-3">
+                  <span
+                    class="px-2 py-1 text-xs rounded-full {% if trip.status == 'completed' %}bg-green-100 text-green-800{% elif trip.status == 'active' %}bg-yellow-100 text-yellow-800{% else %}bg-gray-100 text-gray-800{% endif %}"
+                  >
+                    {{ trip.get_status_display }}
+                  </span>
+                </td>
+              </tr>
+              {% empty %}
+              <tr>
+                <td colspan="5" class="px-4 py-8 text-center text-gray-400">
+                  <i class="fas fa-inbox text-4xl mb-2 block"></i>
+                  Nenhuma viagem encontrada
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% if recent_trips %}
+        <div class="mt-4 text-center">
+          <a
+            href="{% url 'monitoring-list' %}?vehicle={{ vehicle.pk }}"
+            class="text-primary-400 hover:text-primary-300"
+          >
+            Ver todas as viagens <i class="fas fa-arrow-right ml-1"></i>
+          </a>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Sidebar com Informações Adicionais -->
+    <div class="space-y-6">
+      <!-- Info Card -->
+      <div class="bg-gray-800 rounded-lg shadow-lg p-6">
+        <h3 class="text-lg font-bold text-white mb-4">
+          Informações Adicionais
+        </h3>
+        <div class="space-y-3">
+          <div
+            class="flex items-center justify-between py-2 border-b border-gray-700"
+          >
+            <span class="text-gray-400">Transportadora</span>
+            <span class="text-white font-medium text-sm"
+              >{{ vehicle.transportadora.company_name }}</span
+            >
+          </div>
+          <div
+            class="flex items-center justify-between py-2 border-b border-gray-700"
+          >
+            <span class="text-gray-400">Cadastrado em</span>
+            <span class="text-white font-medium"
+              >{{ vehicle.created_at|date:"d/m/Y" }}</span
+            >
+          </div>
+          <div class="flex items-center justify-between py-2">
+            <span class="text-gray-400">Última atualização</span>
+            <span class="text-white font-medium text-sm"
+              >{{ vehicle.updated_at|date:"d/m/Y H:i" }}</span
+            >
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Actions -->
+      <div class="bg-gray-800 rounded-lg shadow-lg p-6">
+        <h3 class="text-lg font-bold text-white mb-4">Ações Rápidas</h3>
+        <div class="space-y-2">
+          {% if vehicle.status == 'DISPONIVEL' %}
+          <a
+            href="{% url 'monitoring-create' %}?vehicle={{ vehicle.pk }}"
+            class="block w-full px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors text-center"
+          >
+            <i class="fas fa-plus mr-2"></i>Nova Viagem
+          </a>
+          {% endif %}
+          <a
+            href="{% url 'monitoring-list' %}?vehicle={{ vehicle.pk }}"
+            class="block w-full px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors text-center"
+          >
+            <i class="fas fa-list mr-2"></i>Ver Viagens
+          </a>
+          {% if not vehicle.device %}
+          <a
+            href="{% url 'devices-create' %}?vehicle={{ vehicle.pk }}"
+            class="block w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-center"
+          >
+            <i class="fas fa-satellite-dish mr-2"></i>Adicionar Rastreador
+          </a>
+          {% endif %}
+          <a
+            href="{% url 'vehicles-edit' vehicle.pk %}"
+            class="block w-full px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors text-center"
+          >
+            <i class="fas fa-edit mr-2"></i>Editar Dados
+          </a>
+        </div>
+      </div>
+
+      <!-- Status Alert -->
+      {% if vehicle.status == 'MANUTENCAO' %}
+      <div
+        class="bg-orange-900 bg-opacity-20 border border-orange-500 rounded-lg p-4"
+      >
+        <div class="flex items-start">
+          <i class="fas fa-tools text-orange-500 mt-1 mr-3"></i>
+          <div>
+            <h4 class="text-orange-400 font-semibold">Em Manutenção</h4>
+            <p class="text-orange-300 text-sm mt-1">
+              Este veículo está em manutenção e não pode ser usado em viagens.
+            </p>
+          </div>
+        </div>
+      </div>
+      {% elif vehicle.status == 'INATIVO' %}
+      <div
+        class="bg-red-900 bg-opacity-20 border border-red-500 rounded-lg p-4"
+      >
+        <div class="flex items-start">
+          <i class="fas fa-ban text-red-500 mt-1 mr-3"></i>
+          <div>
+            <h4 class="text-red-400 font-semibold">Veículo Inativo</h4>
+            <p class="text-red-300 text-sm mt-1">
+              Este veículo está inativo e não pode ser usado em viagens.
+            </p>
+          </div>
+        </div>
+      </div>
+      {% elif vehicle.status == 'EM_VIAGEM' %}
+      <div
+        class="bg-yellow-900 bg-opacity-20 border border-yellow-500 rounded-lg p-4"
+      >
+        <div class="flex items-start">
+          <i class="fas fa-route text-yellow-500 mt-1 mr-3"></i>
+          <div>
+            <h4 class="text-yellow-400 font-semibold">Em Viagem</h4>
+            <p class="text-yellow-300 text-sm mt-1">
+              Este veículo está atualmente em viagem.
+            </p>
+            {% if vehicle.current_trip %}
+            <a
+              href="{% url 'monitoring-detail' vehicle.current_trip.pk %}"
+              class="text-yellow-200 hover:text-yellow-100 text-sm mt-2 inline-block"
+            >
+              Ver viagem atual <i class="fas fa-arrow-right ml-1"></i>
+            </a>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Device Warning -->
+      {% if not vehicle.device %}
+      <div
+        class="bg-blue-900 bg-opacity-20 border border-blue-500 rounded-lg p-4"
+      >
+        <div class="flex items-start">
+          <i class="fas fa-info-circle text-blue-500 mt-1 mr-3"></i>
+          <div>
+            <h4 class="text-blue-400 font-semibold">Sem Rastreador</h4>
+            <p class="text-blue-300 text-sm mt-1">
+              Este veículo não possui rastreador vinculado. Vincule um para
+              monitoramento em tempo real.
+            </p>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<script>
+  function changeStatus() {
+    const statusOptions = [
+      {
+        value: "DISPONIVEL",
+        label: "Disponível",
+        icon: "check-circle",
+        color: "green",
+      },
+      {
+        value: "EM_VIAGEM",
+        label: "Em Viagem",
+        icon: "route",
+        color: "yellow",
+      },
+      {
+        value: "MANUTENCAO",
+        label: "Manutenção",
+        icon: "tools",
+        color: "orange",
+      },
+      { value: "INATIVO", label: "Inativo", icon: "ban", color: "red" },
+    ];
+
+    // TODO: Implementar modal com Alpine.js para seleção visual de status
+    const newStatus = prompt(
+      "Novo status:\n1 - Disponível\n2 - Em Viagem\n3 - Manutenção\n4 - Inativo"
+    );
+
+    if (newStatus >= 1 && newStatus <= 4) {
+      alert(`Status será alterado para: ${statusOptions[newStatus - 1].label}`);
+      // TODO: Implementar endpoint
+      // window.location.href = `/vehicles/{{ vehicle.pk }}/change-status/?status=${statusOptions[newStatus-1].value}`;
+    }
+  }
+</script>
+{% endblock %}

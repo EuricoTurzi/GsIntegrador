@@ -1,0 +1,174 @@
+<!-- Sidebar -->
+<aside
+  :class="sidebarOpen ? 'w-64' : 'w-20'"
+  class="fixed top-0 left-0 z-40 h-screen transition-all duration-300 bg-gradient-to-b from-gray-900 to-gray-800 text-white shadow-2xl"
+  x-cloak
+>
+  <!-- Logo/Brand -->
+  <div
+    class="flex items-center justify-between h-16 px-4 border-b border-gray-700"
+  >
+    <div class="flex items-center space-x-3" x-show="sidebarOpen">
+      <div
+        class="w-10 h-10 bg-primary-500 rounded-lg flex items-center justify-center"
+      >
+        <i class="fas fa-truck-fast text-white text-xl"></i>
+      </div>
+      <div>
+        <h1 class="text-lg font-bold">GR System</h1>
+        <p class="text-xs text-gray-400">Gerenciamento de Risco</p>
+      </div>
+    </div>
+    <button
+      @click="sidebarOpen = !sidebarOpen"
+      class="p-2 rounded-lg hover:bg-gray-700 transition-colors"
+    >
+      <i
+        :class="sidebarOpen ? 'fa-angles-left' : 'fa-angles-right'"
+        class="fas"
+      ></i>
+    </button>
+  </div>
+
+  <!-- Navigation -->
+  <nav class="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+    <!-- Dashboard -->
+    <a
+      href="{% url 'dashboard' %}"
+      class="flex items-center px-3 py-2.5 rounded-lg hover:bg-gray-700 transition-colors group {% if request.resolver_match.url_name == 'dashboard' %}bg-gray-700 text-primary-400{% endif %}"
+    >
+      <i class="fas fa-home w-6 text-center"></i>
+      <span x-show="sidebarOpen" class="ml-3 font-medium">Dashboard</span>
+    </a>
+
+    <!-- Divider -->
+    <div x-show="sidebarOpen" class="pt-4 pb-2">
+      <p
+        class="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider"
+      >
+        Cadastros
+      </p>
+    </div>
+
+    <!-- Drivers -->
+    <a
+      href="{% url 'drivers-list' %}"
+      class="flex items-center px-3 py-2.5 rounded-lg hover:bg-gray-700 transition-colors group {% if 'drivers' in request.path %}bg-gray-700 text-primary-400{% endif %}"
+    >
+      <i class="fas fa-user-tie w-6 text-center"></i>
+      <span x-show="sidebarOpen" class="ml-3 font-medium">Motoristas</span>
+    </a>
+
+    <!-- Vehicles -->
+    <a
+      href="{% url 'vehicles-list' %}"
+      class="flex items-center px-3 py-2.5 rounded-lg hover:bg-gray-700 transition-colors group {% if 'vehicles' in request.path %}bg-gray-700 text-primary-400{% endif %}"
+    >
+      <i class="fas fa-truck w-6 text-center"></i>
+      <span x-show="sidebarOpen" class="ml-3 font-medium">Veículos</span>
+    </a>
+
+    <!-- Devices -->
+    <a
+      href="{% url 'devices-list' %}"
+      class="flex items-center px-3 py-2.5 rounded-lg hover:bg-gray-700 transition-colors group {% if 'devices' in request.path %}bg-gray-700 text-primary-400{% endif %}"
+    >
+      <i class="fas fa-satellite-dish w-6 text-center"></i>
+      <span x-show="sidebarOpen" class="ml-3 font-medium">Rastreadores</span>
+    </a>
+
+    <!-- Routes -->
+    <a
+      href="{% url 'routes-list' %}"
+      class="flex items-center px-3 py-2.5 rounded-lg hover:bg-gray-700 transition-colors group {% if 'routes' in request.path %}bg-gray-700 text-primary-400{% endif %}"
+    >
+      <i class="fas fa-route w-6 text-center"></i>
+      <span x-show="sidebarOpen" class="ml-3 font-medium">Rotas</span>
+    </a>
+
+    <!-- Divider -->
+    <div x-show="sidebarOpen" class="pt-4 pb-2">
+      <p
+        class="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider"
+      >
+        Monitoramento
+      </p>
+    </div>
+
+    <!-- Monitoring Systems -->
+    <a
+      href="{% url 'monitoring_list' %}"
+      class="flex items-center px-3 py-2.5 rounded-lg hover:bg-gray-700 transition-colors group {% if 'monitoring' in request.path %}bg-gray-700 text-primary-400{% endif %}"
+    >
+      <i class="fas fa-map-marked-alt w-6 text-center"></i>
+      <span x-show="sidebarOpen" class="ml-3 font-medium">Viagens</span>
+    </a>
+
+    <!-- Real-time Map -->
+    <a
+      href="{% url 'monitoring_map' %}"
+      class="flex items-center px-3 py-2.5 rounded-lg hover:bg-gray-700 transition-colors group"
+    >
+      <i class="fas fa-map w-6 text-center"></i>
+      <span x-show="sidebarOpen" class="ml-3 font-medium">Mapa Tempo Real</span>
+    </a>
+
+    {% if user.is_superuser or user.user_type == 'GR' %}
+    <!-- Divider -->
+    <div x-show="sidebarOpen" class="pt-4 pb-2">
+      <p
+        class="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider"
+      >
+        Administração
+      </p>
+    </div>
+
+    <!-- Users (GR only) -->
+    <a
+      href="{% url 'authentication:user-list' %}"
+      class="flex items-center px-3 py-2.5 rounded-lg hover:bg-gray-700 transition-colors group {% if 'users' in request.path %}bg-gray-700 text-primary-400{% endif %}"
+    >
+      <i class="fas fa-users w-6 text-center"></i>
+      <span x-show="sidebarOpen" class="ml-3 font-medium">Usuários</span>
+    </a>
+
+    <!-- Integrations -->
+    <a
+      href="{% url 'integrations-status' %}"
+      class="flex items-center px-3 py-2.5 rounded-lg hover:bg-gray-700 transition-colors group"
+    >
+      <i class="fas fa-plug w-6 text-center"></i>
+      <span x-show="sidebarOpen" class="ml-3 font-medium">Integrações</span>
+    </a>
+    {% endif %}
+  </nav>
+
+  <!-- User Profile (at bottom) -->
+  <div class="border-t border-gray-700 p-4">
+    <div class="flex items-center space-x-3" x-show="sidebarOpen">
+      <div
+        class="w-10 h-10 bg-primary-500 rounded-full flex items-center justify-center font-bold"
+      >
+        {{ user.username|slice:":2"|upper }}
+      </div>
+      <div class="flex-1 min-w-0">
+        <p class="text-sm font-medium truncate">{{ user.username }}</p>
+        <p class="text-xs text-gray-400 truncate">
+          {% if user.is_superuser %}Administrador {% elif user.user_type == 'GR'
+          %}Gerenciamento de Risco {% else %}{{
+          user.company_name|default:"Transportadora" }} {% endif %}
+        </p>
+      </div>
+    </div>
+    <button
+      x-show="!sidebarOpen"
+      class="w-full flex items-center justify-center p-2 rounded-lg hover:bg-gray-700"
+    >
+      <div
+        class="w-10 h-10 bg-primary-500 rounded-full flex items-center justify-center font-bold"
+      >
+        {{ user.username|slice:":2"|upper }}
+      </div>
+    </button>
+  </div>
+</aside>

@@ -1,0 +1,319 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if vehicle %}Editar{% else %}Novo{% endif %} Veículo - GR System{% endblock %}
+
+{% block page_title %}{% if vehicle %}Editar{% else %}Novo{% endif %} Veículo{% endblock %}
+
+{% block breadcrumbs %}
+<nav class="flex mb-4" aria-label="Breadcrumb">
+    <ol class="inline-flex items-center space-x-1 md:space-x-3">
+        <li class="inline-flex items-center">
+            <a href="{% url 'dashboard' %}" class="text-gray-400 hover:text-primary-500">
+                <i class="fas fa-home mr-2"></i>Dashboard
+            </a>
+        </li>
+        <li>
+            <div class="flex items-center">
+                <i class="fas fa-chevron-right text-gray-400 mx-2"></i>
+                <a href="{% url 'vehicles-list' %}" class="text-gray-400 hover:text-primary-500">Veículos</a>
+            </div>
+        </li>
+        <li>
+            <div class="flex items-center">
+                <i class="fas fa-chevron-right text-gray-400 mx-2"></i>
+                <span class="text-white">{% if vehicle %}Editar{% else %}Novo{% endif %}</span>
+            </div>
+        </li>
+    </ol>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <form method="post" x-data="vehicleForm()" class="space-y-6">
+        {% csrf_token %}
+        
+        <!-- Dados do Veículo -->
+        <div class="bg-gray-800 rounded-lg shadow-lg p-6">
+            <h3 class="text-xl font-bold text-white mb-6 flex items-center">
+                <i class="fas fa-truck text-primary-500 mr-2"></i>
+                Dados do Veículo
+            </h3>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Transportadora (apenas para GR) -->
+                {% if transportadoras %}
+                <div class="md:col-span-2">
+                    <label for="transportadora" class="block text-sm font-medium text-gray-300 mb-2">
+                        Transportadora <span class="text-red-500">*</span>
+                    </label>
+                    <select 
+                        id="transportadora" 
+                        name="transportadora"
+                        required 
+                        class="w-full bg-gray-700 text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                        <option value="">Selecione uma transportadora</option>
+                        {% for transp in transportadoras %}
+                        <option value="{{ transp.pk }}" {% if vehicle and vehicle.transportadora.pk == transp.pk %}selected{% elif form_data.transportadora == transp.pk|stringformat:"s" %}selected{% endif %}>
+                            {{ transp.company_name|default:transp.username }} - {{ transp.username }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <p class="text-gray-400 text-xs mt-1">Selecione a transportadora responsável pelo veículo</p>
+                </div>
+                {% elif request.user.is_superuser or request.user.user_type == 'GR' %}
+                <div class="md:col-span-2 p-4 bg-yellow-900/20 border border-yellow-500/30 rounded-lg">
+                    <p class="text-sm text-yellow-400">
+                        <i class="fas fa-exclamation-triangle mr-2"></i>
+                        Não há transportadoras cadastradas. Você precisa criar pelo menos uma transportadora antes de cadastrar veículos.
+                    </p>
+                </div>
+                {% endif %}
+                
+                <!-- Placa -->
+                <div>
+                    <label for="placa" class="block text-sm font-medium text-gray-300 mb-2">
+                        Placa <span class="text-red-500">*</span>
+                    </label>
+                    <input 
+                        type="text" 
+                        id="placa" 
+                        name="placa" 
+                        value="{{ vehicle.placa|default:'' }}"
+                        x-model="placa"
+                        @input="formatPlaca"
+                        required
+                        maxlength="8"
+                        class="w-full bg-gray-700 text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary-500 uppercase"
+                        placeholder="ABC1234 ou ABC1D23">
+                    {% if form.placa.errors %}
+                    <p class="text-red-400 text-sm mt-1">{{ form.placa.errors.0 }}</p>
+                    {% endif %}
+                    <p class="text-gray-400 text-xs mt-1">Formato Mercosul: ABC1D23 ou antigo: ABC1234</p>
+                </div>
+                
+                <!-- RENAVAM -->
+                <div>
+                    <label for="renavam" class="block text-sm font-medium text-gray-300 mb-2">
+                        RENAVAM <span class="text-red-500">*</span>
+                    </label>
+                    <input 
+                        type="text" 
+                        id="renavam" 
+                        name="renavam" 
+                        value="{{ vehicle.renavam|default:'' }}"
+                        x-mask="99999999999"
+                        required
+                        maxlength="11"
+                        class="w-full bg-gray-700 text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                        placeholder="11 dígitos">
+                    {% if form.renavam.errors %}
+                    <p class="text-red-400 text-sm mt-1">{{ form.renavam.errors.0 }}</p>
+                    {% endif %}
+                    <p class="text-gray-400 text-xs mt-1">Apenas números, 11 dígitos</p>
+                </div>
+                
+                <!-- Chassi -->
+                <div>
+                    <label for="chassi" class="block text-sm font-medium text-gray-300 mb-2">
+                        Chassi <span class="text-red-500">*</span>
+                    </label>
+                    <input 
+                        type="text" 
+                        id="chassi" 
+                        name="chassi" 
+                        value="{{ vehicle.chassi|default:'' }}"
+                        required
+                        maxlength="17"
+                        class="w-full bg-gray-700 text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary-500 uppercase"
+                        placeholder="17 caracteres">
+                    {% if form.chassi.errors %}
+                    <p class="text-red-400 text-sm mt-1">{{ form.chassi.errors.0 }}</p>
+                    {% endif %}
+                    <p class="text-gray-400 text-xs mt-1">17 caracteres alfanuméricos (VIN - sem I, O, Q)</p>
+                </div>
+                
+                <!-- Modelo -->
+                <div>
+                    <label for="modelo" class="block text-sm font-medium text-gray-300 mb-2">
+                        Modelo <span class="text-red-500">*</span>
+                    </label>
+                    <input 
+                        type="text" 
+                        id="modelo" 
+                        name="modelo" 
+                        value="{{ vehicle.modelo|default:'' }}"
+                        required
+                        class="w-full bg-gray-700 text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                        placeholder="Ex: Scania R450">
+                    {% if form.modelo.errors %}
+                    <p class="text-red-400 text-sm mt-1">{{ form.modelo.errors.0 }}</p>
+                    {% endif %}
+                </div>
+                
+                <!-- Ano -->
+                <div>
+                    <label for="ano" class="block text-sm font-medium text-gray-300 mb-2">
+                        Ano <span class="text-red-500">*</span>
+                    </label>
+                    <input 
+                        type="number" 
+                        id="ano" 
+                        name="ano" 
+                        value="{{ vehicle.ano|default:'' }}"
+                        required
+                        min="1900"
+                        max="2099"
+                        class="w-full bg-gray-700 text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                        placeholder="2024">
+                    {% if form.ano.errors %}
+                    <p class="text-red-400 text-sm mt-1">{{ form.ano.errors.0 }}</p>
+                    {% endif %}
+                </div>
+                
+                <!-- Cor -->
+                <div>
+                    <label for="cor" class="block text-sm font-medium text-gray-300 mb-2">
+                        Cor <span class="text-red-500">*</span>
+                    </label>
+                    <select 
+                        id="cor" 
+                        name="cor" 
+                        required
+                        class="w-full bg-gray-700 text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                        <option value="">Selecione...</option>
+                        <option value="Branco" {% if vehicle.cor == 'Branco' %}selected{% endif %}>Branco</option>
+                        <option value="Preto" {% if vehicle.cor == 'Preto' %}selected{% endif %}>Preto</option>
+                        <option value="Prata" {% if vehicle.cor == 'Prata' %}selected{% endif %}>Prata</option>
+                        <option value="Cinza" {% if vehicle.cor == 'Cinza' %}selected{% endif %}>Cinza</option>
+                        <option value="Vermelho" {% if vehicle.cor == 'Vermelho' %}selected{% endif %}>Vermelho</option>
+                        <option value="Azul" {% if vehicle.cor == 'Azul' %}selected{% endif %}>Azul</option>
+                        <option value="Amarelo" {% if vehicle.cor == 'Amarelo' %}selected{% endif %}>Amarelo</option>
+                        <option value="Verde" {% if vehicle.cor == 'Verde' %}selected{% endif %}>Verde</option>
+                        <option value="Laranja" {% if vehicle.cor == 'Laranja' %}selected{% endif %}>Laranja</option>
+                        <option value="Marrom" {% if vehicle.cor == 'Marrom' %}selected{% endif %}>Marrom</option>
+                        <option value="Outro" {% if vehicle.cor == 'Outro' %}selected{% endif %}>Outro</option>
+                    </select>
+                    {% if form.cor.errors %}
+                    <p class="text-red-400 text-sm mt-1">{{ form.cor.errors.0 }}</p>
+                    {% endif %}
+                </div>
+                
+                <!-- Status -->
+                <div>
+                    <label for="status" class="block text-sm font-medium text-gray-300 mb-2">
+                        Status <span class="text-red-500">*</span>
+                    </label>
+                    <select 
+                        id="status" 
+                        name="status" 
+                        required
+                        class="w-full bg-gray-700 text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                        <option value="DISPONIVEL" {% if not vehicle or vehicle.status == 'DISPONIVEL' %}selected{% endif %}>Disponível</option>
+                        <option value="EM_VIAGEM" {% if vehicle.status == 'EM_VIAGEM' %}selected{% endif %}>Em Viagem</option>
+                        <option value="MANUTENCAO" {% if vehicle.status == 'MANUTENCAO' %}selected{% endif %}>Manutenção</option>
+                        <option value="INATIVO" {% if vehicle.status == 'INATIVO' %}selected{% endif %}>Inativo</option>
+                    </select>
+                    {% if form.status.errors %}
+                    <p class="text-red-400 text-sm mt-1">{{ form.status.errors.0 }}</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Rastreador (opcional) -->
+        <div class="bg-gray-800 rounded-lg shadow-lg p-6">
+            <h3 class="text-xl font-bold text-white mb-6 flex items-center">
+                <i class="fas fa-satellite-dish text-primary-500 mr-2"></i>
+                Rastreador (Opcional)
+            </h3>
+            
+            <div class="grid grid-cols-1 gap-6">
+                <!-- Device Selection -->
+                <div>
+                    <label for="device" class="block text-sm font-medium text-gray-300 mb-2">
+                        Selecionar Rastreador
+                    </label>
+                    <select 
+                        id="device" 
+                        name="device" 
+                        class="w-full bg-gray-700 text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                        <option value="">Nenhum rastreador</option>
+                        {% for device in available_devices %}
+                        <option value="{{ device.pk }}" {% if vehicle.device and vehicle.device.pk == device.pk %}selected{% endif %}>
+                            {{ device.identifier }} ({{ device.suntech_device_id }})
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <p class="text-gray-400 text-xs mt-1">Vincule um rastreador para monitoramento em tempo real</p>
+                </div>
+                
+                <!-- Link para criar novo device -->
+                <div>
+                    <a href="{% url 'devices-create' %}?return_to=vehicles" class="text-primary-400 hover:text-primary-300 text-sm">
+                        <i class="fas fa-plus mr-1"></i>Cadastrar novo rastreador
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Observações -->
+        <div class="bg-gray-800 rounded-lg shadow-lg p-6">
+            <h3 class="text-xl font-bold text-white mb-6 flex items-center">
+                <i class="fas fa-clipboard text-primary-500 mr-2"></i>
+                Informações Adicionais
+            </h3>
+            
+            <div class="space-y-6">
+                <!-- Observações -->
+                <div>
+                    <label for="observacoes" class="block text-sm font-medium text-gray-300 mb-2">
+                        Observações
+                    </label>
+                    <textarea 
+                        id="observacoes" 
+                        name="observacoes" 
+                        rows="4"
+                        class="w-full bg-gray-700 text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                        placeholder="Informações adicionais sobre o veículo...">{{ vehicle.observacoes|default:'' }}</textarea>
+                    {% if form.observacoes.errors %}
+                    <p class="text-red-400 text-sm mt-1">{{ form.observacoes.errors.0 }}</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Actions -->
+        <div class="flex justify-end gap-4">
+            <a href="{% if vehicle %}{% url 'vehicles-detail' vehicle.pk %}{% else %}{% url 'vehicles-list' %}{% endif %}" class="px-6 py-3 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors">
+                <i class="fas fa-times mr-2"></i>Cancelar
+            </a>
+            <button type="submit" class="px-6 py-3 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors">
+                <i class="fas fa-save mr-2"></i>{% if vehicle %}Atualizar{% else %}Cadastrar{% endif %} Veículo
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+function vehicleForm() {
+    return {
+        placa: '{{ vehicle.placa|default:"" }}',
+        
+        formatPlaca() {
+            // Remove caracteres não alfanuméricos
+            this.placa = this.placa.toUpperCase().replace(/[^A-Z0-9]/g, '');
+            
+            // Limita a 8 caracteres
+            if (this.placa.length > 8) {
+                this.placa = this.placa.substring(0, 8);
+            }
+        },
+        
+        init() {
+            console.log('Vehicle form initialized');
+        }
+    };
+}
+</script>
+{% endblock %}

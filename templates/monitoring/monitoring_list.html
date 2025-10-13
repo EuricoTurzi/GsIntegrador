@@ -1,0 +1,362 @@
+{% extends 'base.html' %}
+
+{% block title %}Sistema de Monitoramento{% endblock %}
+
+{% block extra_head %}
+<!-- Leaflet CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+     integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+     crossorigin=""/>
+
+<!-- Leaflet MarkerCluster CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Header -->
+    <div class="flex justify-between items-center">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900">Sistema de Monitoramento</h1>
+            <p class="mt-2 text-sm text-gray-600">Acompanhe viagens e veículos em tempo real</p>
+        </div>
+        <div class="flex space-x-3">
+            <a href="{% url 'monitoring_map' %}" class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
+                <svg class="mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/>
+                </svg>
+                Mapa Full-Screen
+            </a>
+            <a href="{% url 'monitoring_create' %}" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700">
+                <svg class="mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                </svg>
+                Nova Viagem
+            </a>
+        </div>
+    </div>
+
+    <!-- Estatísticas -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        <!-- Total -->
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <svg class="h-6 w-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                        </svg>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Total de Viagens</dt>
+                            <dd class="text-lg font-semibold text-gray-900">{{ stats.total }}</dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Em Andamento -->
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <svg class="h-6 w-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                        </svg>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Em Andamento</dt>
+                            <dd class="text-lg font-semibold text-blue-600">{{ stats.em_andamento }}</dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Planejadas -->
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <svg class="h-6 w-6 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Planejadas</dt>
+                            <dd class="text-lg font-semibold text-yellow-600">{{ stats.planejadas }}</dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Concluídas Hoje -->
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <svg class="h-6 w-6 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Concluídas Hoje</dt>
+                            <dd class="text-lg font-semibold text-green-600">{{ stats.concluidas_hoje }}</dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Canceladas -->
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <svg class="h-6 w-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Canceladas</dt>
+                            <dd class="text-lg font-semibold text-red-600">{{ stats.canceladas }}</dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtros e Mapa -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Filtros -->
+        <div class="lg:col-span-1">
+            <div class="bg-white shadow rounded-lg p-6">
+                <h3 class="text-lg font-medium text-gray-900 mb-4">Filtros</h3>
+                <form method="get" class="space-y-4">
+                    <!-- Busca -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Buscar</label>
+                        <input type="text" name="search" value="{{ filters.search }}" placeholder="ID, nome, motorista, placa..." class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                    </div>
+
+                    <!-- Status -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Status</label>
+                        <select name="status" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                            <option value="">Todos</option>
+                            {% for value, label in status_choices %}
+                            <option value="{{ value }}" {% if filters.status == value %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    {% if transportadoras %}
+                    <!-- Transportadora (apenas para admin/GR) -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Transportadora</label>
+                        <select name="transportadora" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                            <option value="">Todas</option>
+                            {% for transp in transportadoras %}
+                            <option value="{{ transp.pk }}" {% if filters.transportadora == transp.pk|stringformat:"s" %}selected{% endif %}>{{ transp.username }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    {% endif %}
+
+                    <!-- Motorista -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Motorista</label>
+                        <select name="driver" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                            <option value="">Todos</option>
+                            {% for driver in drivers %}
+                            <option value="{{ driver.pk }}" {% if filters.driver == driver.pk|stringformat:"s" %}selected{% endif %}>{{ driver.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Veículo -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Veículo</label>
+                        <select name="vehicle" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                            <option value="">Todos</option>
+                            {% for vehicle in vehicles %}
+                            <option value="{{ vehicle.pk }}" {% if filters.vehicle == vehicle.pk|stringformat:"s" %}selected{% endif %}>{{ vehicle.plate }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="flex space-x-2">
+                        <button type="submit" class="flex-1 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">
+                            Filtrar
+                        </button>
+                        <a href="{% url 'monitoring_list' %}" class="flex-1 bg-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-400 text-center">
+                            Limpar
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Mapa de Viagens Ativas -->
+        <div class="lg:col-span-2">
+            <div class="bg-white shadow rounded-lg p-6">
+                <h3 class="text-lg font-medium text-gray-900 mb-4">Viagens em Andamento</h3>
+                <div id="active-trips-map" class="h-96 rounded-lg"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lista de Viagens -->
+    <div class="bg-white shadow rounded-lg overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h3 class="text-lg font-medium text-gray-900">Viagens</h3>
+        </div>
+        
+        {% if trips %}
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID / Nome</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rota</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Motorista</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Veículo</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data Início</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for trip in trips %}
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm font-medium text-gray-900">{{ trip.identifier }}</div>
+                            <div class="text-sm text-gray-500">{{ trip.name }}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm text-gray-900">{{ trip.route.name }}</div>
+                            <div class="text-xs text-gray-500">{{ trip.route.origin_name }} → {{ trip.route.destination_name }}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {{ trip.driver.name }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {{ trip.vehicle.plate }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            {% if trip.status == 'PLANEJADO' %}
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                                Planejado
+                            </span>
+                            {% elif trip.status == 'EM_ANDAMENTO' %}
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                                Em Andamento
+                            </span>
+                            {% elif trip.status == 'CONCLUIDO' %}
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                Concluído
+                            </span>
+                            {% else %}
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
+                                Cancelado
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {{ trip.planned_start_date|date:"d/m/Y H:i" }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <a href="{% url 'monitoring_detail' trip.pk %}" class="text-blue-600 hover:text-blue-900">Ver Detalhes</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="px-6 py-12 text-center text-gray-500">
+            <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+            </svg>
+            <p class="mt-2 text-sm">Nenhuma viagem encontrada</p>
+            <a href="{% url 'monitoring_create' %}" class="mt-4 inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700">
+                Criar primeira viagem
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+     integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+     crossorigin=""></script>
+
+<!-- Leaflet MarkerCluster JS -->
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+
+<script>
+// Inicializar mapa de viagens ativas
+window.addEventListener('load', function() {
+    var mapData = {{ map_data|safe }};
+    
+    if (mapData.length === 0) {
+        document.getElementById('active-trips-map').innerHTML = '<div class="flex items-center justify-center h-full text-gray-500"><p>Nenhuma viagem ativa no momento</p></div>';
+        return;
+    }
+    
+    // Inicializar mapa
+    var map = L.map('active-trips-map').setView([-23.5505, -46.6333], 10); // São Paulo como centro padrão
+    
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+        maxZoom: 19
+    }).addTo(map);
+    
+    // Cluster de marcadores
+    var markers = L.markerClusterGroup();
+    
+    // Adicionar marcadores
+    mapData.forEach(function(trip) {
+        var marker = L.marker([trip.latitude, trip.longitude]);
+        
+        marker.bindPopup(`
+            <div class="p-2">
+                <strong class="text-blue-600">${trip.identifier}</strong><br>
+                <strong>${trip.name}</strong><br>
+                <span class="text-sm text-gray-600">
+                    Motorista: ${trip.driver}<br>
+                    Veículo: ${trip.vehicle}<br>
+                    Velocidade: ${trip.speed || 0} km/h<br>
+                    ${trip.last_update ? 'Última atualização: ' + new Date(trip.last_update).toLocaleString('pt-BR') : ''}
+                </span><br>
+                <a href="/monitoring/${trip.id}/" class="text-blue-600 hover:text-blue-800 text-sm">Ver Detalhes</a>
+            </div>
+        `);
+        
+        markers.addLayer(marker);
+    });
+    
+    map.addLayer(markers);
+    
+    // Ajustar zoom para mostrar todos os marcadores
+    if (markers.getBounds().isValid()) {
+        map.fitBounds(markers.getBounds(), { padding: [50, 50] });
+    }
+    
+    // Auto-refresh a cada 30 segundos
+    setInterval(function() {
+        location.reload();
+    }, 30000);
+});
+</script>
+{% endblock %}

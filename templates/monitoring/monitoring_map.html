@@ -1,0 +1,231 @@
+{% extends 'base.html' %}
+
+{% block title %}Mapa em Tempo Real{% endblock %}
+
+{% block extra_head %}
+<!-- Leaflet CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+     integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+     crossorigin=""/>
+
+<!-- Leaflet MarkerCluster CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+
+<style>
+    #fullscreen-map {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 1000;
+    }
+    
+    .map-overlay {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        z-index: 1001;
+        background: white;
+        padding: 15px;
+        border-radius: 8px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+        max-width: 300px;
+    }
+    
+    .close-button {
+        position: absolute;
+        top: 20px;
+        left: 20px;
+        z-index: 1001;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="relative">
+    <!-- Botão Fechar -->
+    <a href="{% url 'monitoring_list' %}" class="close-button inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
+        <svg class="mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+        Fechar Mapa
+    </a>
+
+    <!-- Info Panel -->
+    <div class="map-overlay">
+        <h3 class="text-lg font-bold text-gray-900 mb-3">Viagens Ativas</h3>
+        <div class="space-y-2 text-sm">
+            <div class="flex justify-between items-center">
+                <span class="text-gray-600">Total de Veículos:</span>
+                <span class="font-semibold text-blue-600">{{ trips_count }}</span>
+            </div>
+            <div class="flex items-center text-xs text-gray-500">
+                <svg class="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                </svg>
+                Atualização automática a cada 30s
+            </div>
+        </div>
+        
+        <div class="mt-4 pt-4 border-t">
+            <h4 class="text-sm font-semibold text-gray-700 mb-2">Legenda:</h4>
+            <div class="space-y-1 text-xs">
+                <div class="flex items-center">
+                    <div class="h-3 w-3 rounded-full bg-blue-500 mr-2"></div>
+                    <span>Veículo em Movimento</span>
+                </div>
+                <div class="flex items-center">
+                    <div class="h-3 w-3 rounded-full bg-green-500 mr-2"></div>
+                    <span>Origem da Rota</span>
+                </div>
+                <div class="flex items-center">
+                    <div class="h-3 w-3 rounded-full bg-red-500 mr-2"></div>
+                    <span>Destino da Rota</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="mt-4 pt-4 border-t">
+            <p class="text-xs text-gray-500">
+                Clique nos marcadores para ver detalhes da viagem
+            </p>
+        </div>
+    </div>
+
+    <!-- Mapa Full-Screen -->
+    <div id="fullscreen-map"></div>
+</div>
+
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+     integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+     crossorigin=""></script>
+
+<!-- Leaflet MarkerCluster JS -->
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+
+<script>
+var map;
+var markers;
+
+window.addEventListener('load', function() {
+    var mapData = {{ map_data|safe }};
+    
+    // Inicializar mapa (centro em São Paulo por padrão)
+    map = L.map('fullscreen-map').setView([-23.5505, -46.6333], 10);
+    
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+        maxZoom: 19
+    }).addTo(map);
+    
+    // Cluster de marcadores
+    markers = L.markerClusterGroup({
+        chunkedLoading: true,
+        spiderfyOnMaxZoom: true,
+        showCoverageOnHover: false,
+        zoomToBoundsOnClick: true
+    });
+    
+    // Ícone customizado para veículos
+    var vehicleIcon = L.icon({
+        iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
+        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+        iconSize: [25, 41],
+        iconAnchor: [12, 41],
+        popupAnchor: [1, -34],
+        shadowSize: [41, 41]
+    });
+    
+    // Adicionar marcadores
+    if (mapData.length > 0) {
+        mapData.forEach(function(trip) {
+            var marker = L.marker([trip.latitude, trip.longitude], {icon: vehicleIcon});
+            
+            var popupContent = `
+                <div class="p-2" style="min-width: 200px;">
+                    <div class="mb-2 pb-2 border-b">
+                        <strong class="text-blue-600 text-base">${trip.identifier}</strong><br>
+                        <span class="text-sm font-semibold">${trip.name}</span>
+                    </div>
+                    <div class="space-y-1 text-sm">
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">Motorista:</span>
+                            <span class="font-medium">${trip.driver}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">Veículo:</span>
+                            <span class="font-medium">${trip.vehicle}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">Velocidade:</span>
+                            <span class="font-medium">${trip.speed || 0} km/h</span>
+                        </div>
+                        ${trip.last_update ? `
+                        <div class="text-xs text-gray-500 mt-2 pt-2 border-t">
+                            Atualizado: ${new Date(trip.last_update).toLocaleString('pt-BR')}
+                        </div>
+                        ` : ''}
+                    </div>
+                    <div class="mt-3 pt-2 border-t">
+                        <a href="/monitoring/${trip.id}/" class="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                            Ver Detalhes da Viagem →
+                        </a>
+                    </div>
+                </div>
+            `;
+            
+            marker.bindPopup(popupContent, {
+                maxWidth: 300,
+                className: 'custom-popup'
+            });
+            
+            markers.addLayer(marker);
+        });
+        
+        map.addLayer(markers);
+        
+        // Ajustar zoom para mostrar todos os marcadores
+        if (markers.getBounds().isValid()) {
+            map.fitBounds(markers.getBounds(), { padding: [50, 50] });
+        }
+    } else {
+        // Sem viagens ativas
+        var noDataDiv = L.control({position: 'center'});
+        noDataDiv.onAdd = function(map) {
+            var div = L.DomUtil.create('div', 'leaflet-control');
+            div.innerHTML = `
+                <div class="bg-white p-6 rounded-lg shadow-lg text-center">
+                    <svg class="mx-auto h-12 w-12 text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/>
+                    </svg>
+                    <p class="text-gray-600 font-medium">Nenhuma viagem ativa no momento</p>
+                    <p class="text-sm text-gray-500 mt-2">Inicie uma viagem para visualizar no mapa</p>
+                </div>
+            `;
+            return div;
+        };
+        noDataDiv.addTo(map);
+    }
+    
+    // Auto-refresh a cada 30 segundos
+    setInterval(function() {
+        location.reload();
+    }, 30000);
+});
+</script>
+
+<style>
+.custom-popup .leaflet-popup-content {
+    margin: 0;
+    padding: 0;
+}
+
+.custom-popup .leaflet-popup-content-wrapper {
+    padding: 0;
+    border-radius: 8px;
+}
+</style>
+{% endblock %}

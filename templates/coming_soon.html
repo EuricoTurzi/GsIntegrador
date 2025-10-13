@@ -1,0 +1,34 @@
+{% extends 'base.html' %}
+
+{% block title %}Em Breve - Sistema Integrador GR{% endblock %}
+
+endblock %}
+
+{% block page_title %}Em Breve{% endblock %}
+
+{% block content %}
+
+<div class="flex items-center justify-center min-h-[60vh]">
+  <div class="text-center">
+    <div
+      class="inline-flex items-center justify-center w-24 h-24 bg-primary-100 rounded-full mb-6"
+    >
+      <i class="fas fa-tools text-primary-600 text-5xl"></i>
+    </div>
+    <h2 class="text-3xl font-bold text-gray-900 mb-4">
+      Página em Desenvolvimento
+    </h2>
+    <p class="text-gray-600 text-lg mb-8">
+      Esta funcionalidade estará disponível em breve!
+    </p>
+    <a
+      href="{% url 'dashboard' %}"
+      class="inline-flex items-center px-6 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors font-medium"
+    >
+      <i class="fas fa-arrow-left mr-2"></i>
+      Voltar ao Dashboard
+    </a>
+  </div>
+</div>
+
+{% endblock %}

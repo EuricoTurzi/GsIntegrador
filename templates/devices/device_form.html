@@ -1,0 +1,204 @@
+{% extends 'base.html' %}
+
+{% block title %}
+  {% if device %}Editar{% else %}Novo{% endif %} Rastreador - GR System
+{% endblock %}
+
+{% block page_title %}
+  {% if device %}Editar Rastreador{% else %}Novo Rastreador{% endif %}
+{% endblock %}
+
+{% block breadcrumbs %}
+<nav class="flex mb-4" aria-label="Breadcrumb">
+  <ol class="inline-flex items-center space-x-1 md:space-x-3">
+    <li class="inline-flex items-center">
+      <a href="{% url 'dashboard' %}" class="text-gray-400 hover:text-primary-500">
+        <i class="fas fa-home mr-2"></i>Dashboard
+      </a>
+    </li>
+    <li>
+      <div class="flex items-center">
+        <i class="fas fa-chevron-right text-gray-400 mx-2"></i>
+        <a href="{% url 'devices-list' %}" class="text-gray-400 hover:text-primary-500">Rastreadores</a>
+      </div>
+    </li>
+    <li>
+      <div class="flex items-center">
+        <i class="fas fa-chevron-right text-gray-400 mx-2"></i>
+        <span class="text-white">
+          {% if device %}Editar{% else %}Novo{% endif %}
+        </span>
+      </div>
+    </li>
+  </ol>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+  <div class="bg-gray-800 rounded-lg shadow-lg p-6">
+    <div class="mb-6">
+      <h2 class="text-2xl font-bold text-white flex items-center">
+        <i class="fas fa-satellite-dish text-primary-500 mr-3"></i>
+        {% if device %}Editar Rastreador{% else %}Cadastrar Novo Rastreador{% endif %}
+      </h2>
+      <p class="text-gray-400 mt-2">
+        Preencha os dados do rastreador para cadastro no sistema
+      </p>
+    </div>
+
+    <form method="POST" x-data="deviceForm()">
+      {% csrf_token %}
+
+      <!-- Número do Equipamento -->
+      <div class="bg-gray-700 rounded-lg p-6 mb-6">
+        <h3 class="text-lg font-semibold text-white mb-4 flex items-center">
+          <i class="fas fa-satellite-dish text-primary-500 mr-2"></i>
+          Número do Equipamento
+        </h3>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <!-- Device ID / Número do Equipamento -->
+          <div>
+            <label for="device_number" class="block text-sm font-medium text-gray-300 mb-2">
+              Número do Equipamento <span class="text-red-500">*</span>
+            </label>
+            <input 
+              type="text" 
+              id="device_number" 
+              name="device_number" 
+              value="{% if device %}{{ device.suntech_device_id|default:device.imei|default:'' }}{% endif %}"
+              required
+              maxlength="20"
+              class="w-full bg-gray-700 text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary-500"
+              placeholder="Ex: 1970053085">
+            <p class="text-gray-400 text-xs mt-1">Número do rastreador (IMEI ou Device ID Suntech)</p>
+          </div>
+
+          <!-- Label (Nome amigável) -->
+          <div>
+            <label for="label" class="block text-sm font-medium text-gray-300 mb-2">
+              Nome/Apelido (opcional)
+            </label>
+            <input 
+              type="text" 
+              id="label" 
+              name="label" 
+              value="{% if device %}{{ device.label|default:'' }}{% endif %}"
+              maxlength="100"
+              class="w-full bg-gray-700 text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary-500"
+              placeholder="Ex: Rastreador Caminhão 01">
+            <p class="text-gray-400 text-xs mt-1">Nome para identificar facilmente o rastreador</p>
+          </div>
+        </div>
+
+        <div class="mt-4 p-4 bg-blue-900 bg-opacity-20 border border-blue-500 rounded-lg">
+          <div class="flex items-start">
+            <i class="fas fa-info-circle text-blue-400 mt-1 mr-3"></i>
+            <div class="text-sm text-blue-300">
+              <p class="font-semibold mb-2">📱 Onde encontrar o número do equipamento?</p>
+              <ul class="list-disc list-inside space-y-1">
+                <li>Na etiqueta física do rastreador</li>
+                <li>No manual/documentação do fabricante</li>
+                <li>Na plataforma Suntech (Device ID)</li>
+              </ul>
+              <p class="mt-2">O sistema buscará automaticamente os dados do rastreador na API Suntech.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Veículo -->
+      <div class="bg-gray-700 rounded-lg p-6 mb-6">
+        <h3 class="text-lg font-semibold text-white mb-4 flex items-center">
+          <i class="fas fa-truck text-primary-500 mr-2"></i>
+          Veículo Vinculado
+        </h3>
+
+        <div class="grid grid-cols-1 gap-6">
+          <div>
+            <label for="vehicle" class="block text-sm font-medium text-gray-300 mb-2">
+              Veículo
+            </label>
+            <select 
+              id="vehicle" 
+              name="vehicle" 
+              class="w-full bg-gray-700 text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary-500">
+              <option value="">Nenhum (deixar sem veículo)</option>
+              {% for v in available_vehicles %}
+              <option value="{{ v.pk }}" {% if device and device.vehicle.pk == v.pk %}selected{% endif %}>
+                {{ v.placa }} - {{ v.modelo }} ({{ v.cor }})
+              </option>
+              {% endfor %}
+            </select>
+            <p class="text-gray-400 text-xs mt-1">Selecione o veículo para vincular este rastreador</p>
+          </div>
+
+          {% if available_vehicles|length == 0 %}
+          <div class="p-4 bg-yellow-900 bg-opacity-20 border border-yellow-500 rounded-lg">
+            <div class="flex items-start">
+              <i class="fas fa-exclamation-triangle text-yellow-400 mt-1 mr-3"></i>
+              <div class="text-sm text-yellow-300">
+                <p class="font-semibold mb-1">Nenhum veículo disponível</p>
+                <p>Todos os veículos já possuem rastreadores vinculados ou não há veículos cadastrados.</p>
+                <a href="{% url 'vehicles-create' %}" class="text-yellow-200 hover:text-yellow-100 underline mt-2 inline-block">
+                  Cadastrar novo veículo
+                </a>
+              </div>
+            </div>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Status -->
+      <div class="bg-gray-700 rounded-lg p-6 mb-6">
+        <h3 class="text-lg font-semibold text-white mb-4 flex items-center">
+          <i class="fas fa-toggle-on text-primary-500 mr-2"></i>
+          Status
+        </h3>
+
+        <div class="flex items-center">
+          <input 
+            type="checkbox" 
+            id="is_active" 
+            name="is_active" 
+            {% if not device or device.is_active %}checked{% endif %}
+            class="w-5 h-5 text-primary-500 bg-gray-700 border-gray-600 rounded focus:ring-primary-500">
+          <label for="is_active" class="ml-3 text-gray-300">
+            Rastreador ativo no sistema
+          </label>
+        </div>
+        <p class="text-gray-400 text-xs mt-2 ml-8">
+          Rastreadores inativos não receberão atualizações da API Suntech
+        </p>
+      </div>
+
+      <!-- Ações -->
+      <div class="flex items-center justify-end gap-4 pt-6 border-t border-gray-700">
+        <a 
+          href="{% if device %}{% url 'devices-detail' device.pk %}{% else %}{% url 'devices-list' %}{% endif %}" 
+          class="px-6 py-3 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors">
+          <i class="fas fa-times mr-2"></i>Cancelar
+        </a>
+        <button 
+          type="submit" 
+          class="px-6 py-3 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors">
+          <i class="fas fa-save mr-2"></i>
+          {% if device %}Salvar Alterações{% else %}Cadastrar Rastreador{% endif %}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  function deviceForm() {
+    return {
+      init() {
+        console.log('Device form initialized');
+      }
+    }
+  }
+</script>
+{% endblock %}

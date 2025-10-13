@@ -1,0 +1,696 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ device.label|default:device.imei|default:"Rastreador" }} - GR System{% endblock %}
+
+{% block page_title %}Detalhes do Rastreador{% endblock %}
+
+{% block breadcrumbs %}
+<nav class="flex mb-4" aria-label="Breadcrumb">
+  <ol class="inline-flex items-center space-x-1 md:space-x-3">
+    <li class="inline-flex items-center">
+      <a
+        href="{% url 'dashboard' %}"
+        class="text-gray-400 hover:text-primary-500"
+      >
+        <i class="fas fa-home mr-2"></i>Dashboard
+      </a>
+    </li>
+    <li>
+      <div class="flex items-center">
+        <i class="fas fa-chevron-right text-gray-400 mx-2"></i>
+        <a
+          href="{% url 'devices-list' %}"
+          class="text-gray-400 hover:text-primary-500"
+          >Rastreadores</a
+        >
+      </div>
+    </li>
+    <li>
+      <div class="flex items-center">
+        <i class="fas fa-chevron-right text-gray-400 mx-2"></i>
+        <span class="text-white">{{ device.label|default:device.imei|default:"Rastreador" }}</span>
+      </div>
+    </li>
+  </ol>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+  <!-- Header with Actions -->
+  <div class="bg-gray-800 rounded-lg shadow-lg p-6">
+    <div
+      class="flex flex-col md:flex-row items-start md:items-center justify-between"
+    >
+      <div class="flex items-center space-x-4">
+        <div
+          class="h-20 w-20 bg-gray-700 rounded-lg flex items-center justify-center"
+        >
+          <i class="fas fa-satellite-dish text-primary-500 text-3xl"></i>
+        </div>
+        <div>
+          <h2 class="text-2xl font-bold text-white">{{ device.label|default:device.imei|default:"Rastreador sem identificação" }}</h2>
+          <p class="text-gray-400">IMEI: {{ device.imei|default:"Não informado" }}</p>
+          <div class="mt-2 flex items-center gap-2">
+            {% if device.is_active %}
+            <span
+              class="px-3 py-1 inline-flex text-sm font-semibold rounded-full bg-green-100 text-green-800"
+            >
+              <i class="fas fa-check-circle mr-1"></i> Ativo
+            </span>
+            {% else %}
+            <span
+              class="px-3 py-1 inline-flex text-sm font-semibold rounded-full bg-red-100 text-red-800"
+            >
+              <i class="fas fa-times-circle mr-1"></i> Inativo
+            </span>
+            {% endif %}
+            
+            {% if device.last_position_date %}
+              {% now "U" as current_timestamp %}
+              {% if device.last_position_date|date:"U"|add:"86400" > current_timestamp %}
+                <span
+                  class="px-3 py-1 inline-flex text-sm font-semibold rounded-full bg-green-100 text-green-800"
+                >
+                  <i class="fas fa-signal mr-1"></i> Atualizado
+                </span>
+              {% else %}
+                <span
+                  class="px-3 py-1 inline-flex text-sm font-semibold rounded-full bg-yellow-100 text-yellow-800"
+                >
+                  <i class="fas fa-exclamation-triangle mr-1"></i> Desatualizado
+                </span>
+              {% endif %}
+            {% else %}
+              <span
+                class="px-3 py-1 inline-flex text-sm font-semibold rounded-full bg-gray-100 text-gray-800"
+              >
+                <i class="fas fa-question-circle mr-1"></i> Sem Dados
+              </span>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      <div class="mt-4 md:mt-0 flex gap-2">
+        <button
+          onclick="syncDevice()"
+          class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+        >
+          <i class="fas fa-sync-alt mr-2"></i>Sincronizar
+        </button>
+        <a
+          href="{% url 'devices-edit' device.pk %}"
+          class="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors"
+        >
+          <i class="fas fa-edit mr-2"></i>Editar
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stats Cards -->
+  <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+    <div
+      class="bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg shadow-lg p-6 text-white"
+    >
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="text-blue-100 text-sm font-medium">Velocidade Atual</p>
+          <p class="text-3xl font-bold mt-2" id="device-speed">
+            {{ device.last_speed|default:"0" }} km/h
+          </p>
+        </div>
+        <div class="bg-blue-400 bg-opacity-30 rounded-full p-3">
+          <i class="fas fa-tachometer-alt text-2xl"></i>
+        </div>
+      </div>
+    </div>
+
+    <div
+      class="bg-gradient-to-br from-green-500 to-green-600 rounded-lg shadow-lg p-6 text-white"
+    >
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="text-green-100 text-sm font-medium">Ignição</p>
+          <p class="text-3xl font-bold mt-2">
+            {% if device.last_ignition_status == 'ON' %}
+              <i class="fas fa-key text-2xl"></i> Ligada
+            {% else %}
+              <i class="fas fa-key text-2xl opacity-50"></i> Desligada
+            {% endif %}
+          </p>
+        </div>
+        <div class="bg-green-400 bg-opacity-30 rounded-full p-3">
+          <i class="fas fa-power-off text-2xl"></i>
+        </div>
+      </div>
+    </div>
+
+    <div
+      class="bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg shadow-lg p-6 text-white"
+    >
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="text-purple-100 text-sm font-medium">Última Posição</p>
+          <p class="text-lg font-bold mt-2" id="last-position-time">
+            {% if device.last_position_date %}
+              {{ device.last_position_date|date:"d/m H:i" }}
+            {% else %}
+              Sem dados
+            {% endif %}
+          </p>
+        </div>
+        <div class="bg-purple-400 bg-opacity-30 rounded-full p-3">
+          <i class="fas fa-map-marker-alt text-2xl"></i>
+        </div>
+      </div>
+    </div>
+
+    <div
+      class="bg-gradient-to-br from-orange-500 to-orange-600 rounded-lg shadow-lg p-6 text-white"
+    >
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="text-orange-100 text-sm font-medium">
+            Última Sincronização
+          </p>
+          <p class="text-lg font-bold mt-2" id="last-sync-time">
+            {% if device.last_system_date %}
+              {{ device.last_system_date|date:"d/m H:i" }}
+            {% else %}
+              Nunca
+            {% endif %}
+          </p>
+        </div>
+        <div class="bg-orange-400 bg-opacity-30 rounded-full p-3">
+          <i class="fas fa-sync-alt text-2xl"></i>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Informações Principais -->
+    <div class="lg:col-span-2 space-y-6">
+      <!-- Dados do Rastreador -->
+      <div class="bg-gray-800 rounded-lg shadow-lg p-6" id="device-info-card">
+        <h3 class="text-xl font-bold text-white mb-4 flex items-center">
+          <i class="fas fa-satellite-dish text-primary-500 mr-2"></i>
+          Dados do Rastreador
+        </h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="text-sm text-gray-400">Label/Identificação</label>
+            <p class="text-white font-medium text-lg">
+              {{ device.label|default:"Não informado" }}
+            </p>
+          </div>
+          <div>
+            <label class="text-sm text-gray-400">IMEI</label>
+            <p class="text-white font-medium">{{ device.imei|default:"Não informado" }}</p>
+          </div>
+          <div>
+            <label class="text-sm text-gray-400">ID Device Suntech</label>
+            <p class="text-white font-medium">
+              {{ device.suntech_device_id|default:"Não vinculado" }}
+            </p>
+          </div>
+          <div>
+            <label class="text-sm text-gray-400">ID Vehicle Suntech</label>
+            <p class="text-white font-medium">
+              {{ device.suntech_vehicle_id|default:"Não vinculado" }}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Telemetria -->
+      <div class="bg-gray-800 rounded-lg shadow-lg p-6">
+        <h3 class="text-xl font-bold text-white mb-4 flex items-center">
+          <i class="fas fa-chart-line text-primary-500 mr-2"></i>
+          Telemetria
+        </h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="text-sm text-gray-400">Latitude</label>
+            <p class="text-white font-medium">
+              {% if device.last_latitude %}
+                {{ device.last_latitude|floatformat:6 }}
+              {% else %}
+                Sem dados
+              {% endif %}
+            </p>
+          </div>
+          <div>
+            <label class="text-sm text-gray-400">Longitude</label>
+            <p class="text-white font-medium">
+              {% if device.last_longitude %}
+                {{ device.last_longitude|floatformat:6 }}
+              {% else %}
+                Sem dados
+              {% endif %}
+            </p>
+          </div>
+          <div>
+            <label class="text-sm text-gray-400">Velocidade</label>
+            <p class="text-white font-medium">
+              {{ device.last_speed|default:"0" }} km/h
+            </p>
+          </div>
+          <div>
+            <label class="text-sm text-gray-400">Status da Ignição</label>
+            <p class="text-white font-medium">
+              {% if device.last_ignition_status == 'ON' %}
+              <span class="text-green-400"
+                ><i class="fas fa-check-circle mr-1"></i>Ligada</span
+              >
+              {% else %}
+              <span class="text-red-400"
+                ><i class="fas fa-times-circle mr-1"></i>Desligada</span
+              >
+              {% endif %}
+            </p>
+          </div>
+          <div>
+            <label class="text-sm text-gray-400">Data da Posição</label>
+            <p class="text-white font-medium">
+              {% if device.last_position_date %}
+                {{ device.last_position_date|date:"d/m/Y H:i:s" }}
+              {% else %}
+                Sem dados
+              {% endif %}
+            </p>
+          </div>
+          <div>
+            <label class="text-sm text-gray-400">Data do Sistema</label>
+            <p class="text-white font-medium">
+              {% if device.last_system_date %}
+                {{ device.last_system_date|date:"d/m/Y H:i:s" }}
+              {% else %}
+                Sem dados
+              {% endif %}
+            </p>
+          </div>
+        </div>
+
+        {% if device.last_latitude and device.last_longitude %}
+        <div class="mt-4">
+          <a
+            href="https://www.google.com/maps?q={{ device.last_latitude }},{{ device.last_longitude }}"
+            target="_blank"
+            class="inline-flex items-center px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors"
+          >
+            <i class="fas fa-map-marked-alt mr-2"></i>Ver no Google Maps
+          </a>
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- Veículo Vinculado -->
+      <div class="bg-gray-800 rounded-lg shadow-lg p-6">
+        <h3 class="text-xl font-bold text-white mb-4 flex items-center">
+          <i class="fas fa-truck text-primary-500 mr-2"></i>
+          Veículo Vinculado
+        </h3>
+        {% if device.vehicle %}
+        <div
+          class="flex items-center justify-between p-4 bg-gray-700 rounded-lg"
+        >
+          <div class="flex items-center space-x-4">
+            <div
+              class="h-12 w-12 bg-gray-600 rounded-lg flex items-center justify-center"
+            >
+              <i class="fas fa-truck text-primary-500 text-xl"></i>
+            </div>
+            <div>
+              <p class="text-white font-medium text-lg">
+                {{ device.vehicle.placa }}
+              </p>
+              <p class="text-gray-400 text-sm">
+                {{ device.vehicle.modelo }} - {{ device.vehicle.cor }}
+              </p>
+            </div>
+          </div>
+          <a
+            href="{% url 'vehicles-detail' device.vehicle.pk %}"
+            class="px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors"
+          >
+            <i class="fas fa-arrow-right mr-2"></i>Ver Veículo
+          </a>
+        </div>
+        {% else %}
+        <div class="text-center py-8 text-gray-400">
+          <i class="fas fa-truck text-6xl mb-4 text-gray-600"></i>
+          <p class="text-lg font-medium">Nenhum veículo vinculado</p>
+          <p class="text-sm mt-2">
+            Vincule este rastreador a um veículo para começar o monitoramento
+          </p>
+          <a
+            href="{% url 'devices-edit' device.pk %}"
+            class="inline-block mt-4 px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors"
+          >
+            <i class="fas fa-link mr-2"></i>Vincular Veículo
+          </a>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="space-y-6">
+      <!-- Info Card -->
+      <div class="bg-gray-800 rounded-lg shadow-lg p-6">
+        <h3 class="text-lg font-bold text-white mb-4">
+          Informações Adicionais
+        </h3>
+        <div class="space-y-3">
+          <div
+            class="flex items-center justify-between py-2 border-b border-gray-700"
+          >
+            <span class="text-gray-400">Status</span>
+            <span class="text-white font-medium">
+              {% if device.is_active %}
+              <span class="text-green-400">Ativo</span>
+              {% else %}
+              <span class="text-red-400">Inativo</span>
+              {% endif %}
+            </span>
+          </div>
+          <div
+            class="flex items-center justify-between py-2 border-b border-gray-700"
+          >
+            <span class="text-gray-400">Cadastrado em</span>
+            <span class="text-white font-medium"
+              >{{ device.created_at|date:"d/m/Y" }}</span
+            >
+          </div>
+          <div class="flex items-center justify-between py-2">
+            <span class="text-gray-400">Última atualização</span>
+            <span class="text-white font-medium text-sm"
+              >{{ device.updated_at|date:"d/m/Y H:i" }}</span
+            >
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Actions -->
+      <div class="bg-gray-800 rounded-lg shadow-lg p-6">
+        <h3 class="text-lg font-bold text-white mb-4">Ações Rápidas</h3>
+        <div class="space-y-2">
+          <button
+            onclick="syncDevice()"
+            class="block w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-center"
+          >
+            <i class="fas fa-sync-alt mr-2"></i>Sincronizar Dados
+          </button>
+          {% if device.vehicle %}
+          <a
+            href="{% url 'vehicles-detail' device.vehicle.pk %}"
+            class="block w-full px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors text-center"
+          >
+            <i class="fas fa-truck mr-2"></i>Ver Veículo
+          </a>
+          {% else %}
+          <a
+            href="{% url 'devices-edit' device.pk %}"
+            class="block w-full px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors text-center"
+          >
+            <i class="fas fa-link mr-2"></i>Vincular Veículo
+          </a>
+          {% endif %}
+          <a
+            href="{% url 'devices-edit' device.pk %}"
+            class="block w-full px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors text-center"
+          >
+            <i class="fas fa-edit mr-2"></i>Editar Dados
+          </a>
+        </div>
+      </div>
+
+      <!-- Status Alert -->
+      {% if not device.last_position_date %}
+      <div
+        class="bg-yellow-900 bg-opacity-20 border border-yellow-500 rounded-lg p-4"
+      >
+        <div class="flex items-start">
+          <i class="fas fa-exclamation-triangle text-yellow-500 mt-1 mr-3"></i>
+          <div>
+            <h4 class="text-yellow-400 font-semibold">Sem Dados de Posição</h4>
+            <p class="text-yellow-300 text-sm mt-1">
+              Este rastreador nunca enviou dados de posição. Verifique a
+              instalação.
+            </p>
+          </div>
+        </div>
+      </div>
+      {% elif device.last_position_date|date:"U"|add:"86400" < current_timestamp
+      %}
+      <div
+        class="bg-orange-900 bg-opacity-20 border border-orange-500 rounded-lg p-4"
+      >
+        <div class="flex items-start">
+          <i class="fas fa-clock text-orange-500 mt-1 mr-3"></i>
+          <div>
+            <h4 class="text-orange-400 font-semibold">Dados Desatualizados</h4>
+            <p class="text-orange-300 text-sm mt-1">
+              A última atualização foi há mais de 24 horas. Sincronize os dados.
+            </p>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+      
+      {% if not device.vehicle %}
+      <div
+        class="bg-blue-900 bg-opacity-20 border border-blue-500 rounded-lg p-4"
+      >
+        <div class="flex items-start">
+          <i class="fas fa-info-circle text-blue-500 mt-1 mr-3"></i>
+          <div>
+            <h4 class="text-blue-400 font-semibold">Sem Veículo</h4>
+            <p class="text-blue-300 text-sm mt-1">
+              Este rastreador não está vinculado a nenhum veículo. Vincule para
+              ativar o monitoramento.
+            </p>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<script>
+  function syncDevice() {
+    if (
+      confirm("Deseja sincronizar os dados deste rastreador com a API Suntech?")
+    ) {
+      // TODO: Implementar chamada AJAX para sincronização
+      window.location.href = "/devices/{{ device.pk }}/sync/";
+    }
+  }
+  
+  // ===================================================================
+  // WEBSOCKET - ATUALIZAÇÃO EM TEMPO REAL
+  // ===================================================================
+  
+  let deviceSocket = null;
+  let reconnectInterval = null;
+  const RECONNECT_DELAY = 3000; // 3 segundos
+  const DEVICE_ID = {{ device.pk }};
+  
+  function connectWebSocket() {
+      // Define o protocolo correto (ws ou wss)
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsUrl = `${protocol}//${window.location.host}/ws/devices/${DEVICE_ID}/`;
+      
+      console.log('🔌 Tentando conectar ao WebSocket:', wsUrl);
+      
+      deviceSocket = new WebSocket(wsUrl);
+      
+      deviceSocket.onopen = function(e) {
+          console.log('✅ WebSocket conectado ao servidor');
+          showToast('Conectado - Atualizações em tempo real ativas', 'success');
+          
+          // Limpa tentativas de reconexão
+          if (reconnectInterval) {
+              clearInterval(reconnectInterval);
+              reconnectInterval = null;
+          }
+      };
+      
+      deviceSocket.onmessage = function(e) {
+          const data = JSON.parse(e.data);
+          console.log('📨 Mensagem recebida:', data);
+          
+          if (data.type === 'device_sync') {
+              handleDeviceSync(data.data);
+          } else if (data.type === 'position_update') {
+              handlePositionUpdate(data.data);
+          } else if (data.type === 'connection_established') {
+              console.log('✅', data.message);
+          }
+      };
+      
+      deviceSocket.onerror = function(error) {
+          console.error('❌ Erro no WebSocket:', error);
+      };
+      
+      deviceSocket.onclose = function(e) {
+          console.log('🔌 WebSocket desconectado. Tentando reconectar...');
+          showToast('Conexão perdida. Tentando reconectar...', 'warning');
+          
+          // Tenta reconectar automaticamente
+          if (!reconnectInterval) {
+              reconnectInterval = setInterval(function() {
+                  console.log('🔄 Tentando reconectar...');
+                  connectWebSocket();
+              }, RECONNECT_DELAY);
+          }
+      };
+  }
+  
+  function handleDeviceSync(data) {
+      console.log('🔄 Dispositivo sincronizado:', data);
+      
+      showToast('✅ Dispositivo sincronizado com sucesso!', 'success');
+      
+      // Atualiza informações na página
+      updateDeviceInfo(data);
+  }
+  
+  function handlePositionUpdate(data) {
+      console.log('📍 Posição atualizada:', data);
+      
+      showToast('📍 Nova posição recebida', 'info');
+      
+      // Atualiza mapa e informações
+      updateDeviceInfo(data);
+  }
+  
+  function updateDeviceInfo(data) {
+      // Atualiza última sincronização
+      const lastSyncElement = document.getElementById('last-sync-time');
+      if (lastSyncElement && data.last_system_date) {
+          const date = new Date(data.last_system_date);
+          lastSyncElement.textContent = date.toLocaleString('pt-BR');
+      }
+      
+      // Atualiza última posição
+      const lastPositionElement = document.getElementById('last-position-time');
+      if (lastPositionElement && data.last_position_date) {
+          const date = new Date(data.last_position_date);
+          lastPositionElement.textContent = date.toLocaleString('pt-BR');
+      }
+      
+      // Atualiza posição no mapa (se houver mapa inicializado)
+      if (typeof updateMapPosition === 'function' && data.latitude && data.longitude) {
+          updateMapPosition(data.latitude, data.longitude);
+      }
+      
+      // Atualiza velocidade
+      const speedElement = document.getElementById('device-speed');
+      if (speedElement && data.speed !== undefined) {
+          speedElement.textContent = `${data.speed} km/h`;
+      }
+      
+      // Atualiza endereço
+      const addressElement = document.getElementById('device-address');
+      if (addressElement && data.address) {
+          addressElement.textContent = data.address;
+      }
+      
+      // Efeito visual de "atualizado"
+      const infoCard = document.getElementById('device-info-card');
+      if (infoCard) {
+          infoCard.classList.add('ring-2', 'ring-green-500');
+          setTimeout(() => {
+              infoCard.classList.remove('ring-2', 'ring-green-500');
+          }, 2000);
+      }
+  }
+  
+  function showToast(message, type = 'info') {
+      // Remove toasts anteriores
+      const oldToast = document.getElementById('websocket-toast');
+      if (oldToast) oldToast.remove();
+      
+      // Define cores baseado no tipo
+      let bgColor = 'bg-blue-500';
+      let icon = 'fa-info-circle';
+      
+      if (type === 'success') {
+          bgColor = 'bg-green-500';
+          icon = 'fa-check-circle';
+      } else if (type === 'warning') {
+          bgColor = 'bg-yellow-500';
+          icon = 'fa-exclamation-triangle';
+      } else if (type === 'error') {
+          bgColor = 'bg-red-500';
+          icon = 'fa-times-circle';
+      }
+      
+      // Cria o toast
+      const toast = document.createElement('div');
+      toast.id = 'websocket-toast';
+      toast.className = `fixed bottom-4 right-4 ${bgColor} text-white px-6 py-3 rounded-lg shadow-lg flex items-center space-x-3 z-50 animate-fade-in`;
+      toast.innerHTML = `
+          <i class="fas ${icon}"></i>
+          <span>${message}</span>
+      `;
+      
+      document.body.appendChild(toast);
+      
+      // Remove após 3 segundos
+      setTimeout(() => {
+          toast.classList.add('animate-fade-out');
+          setTimeout(() => toast.remove(), 300);
+      }, 3000);
+  }
+  
+  // Conecta ao WebSocket quando a página carregar
+  document.addEventListener('DOMContentLoaded', function() {
+      console.log('🚀 Iniciando WebSocket para dispositivo...');
+      connectWebSocket();
+  });
+  
+  // Desconecta ao sair da página
+  window.addEventListener('beforeunload', function() {
+      if (deviceSocket) {
+          deviceSocket.close();
+      }
+  });
+</script>
+
+<style>
+@keyframes fade-in {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes fade-out {
+    from {
+        opacity: 1;
+        transform: translateY(0);
+    }
+    to {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+}
+
+.animate-fade-in {
+    animation: fade-in 0.3s ease-out;
+}
+
+.animate-fade-out {
+    animation: fade-out 0.3s ease-out;
+}
+</style>
+{% endblock %}
