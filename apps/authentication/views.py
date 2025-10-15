@@ -199,9 +199,65 @@ def login_view(request):
 
 
 def register_view(request):
-    """View para renderizar o template de registro"""
+    """View para processar registro com formulário HTML"""
     if request.user.is_authenticated:
         return redirect('dashboard')
+    
+    if request.method == 'POST':
+        try:
+            # Coletar dados do formulário
+            username = request.POST.get('username')
+            email = request.POST.get('email')
+            password = request.POST.get('password')
+            password_confirm = request.POST.get('password_confirm')
+            user_type = request.POST.get('user_type', 'TRANSPORTADORA')
+            
+            # Validações básicas
+            if not username or not email or not password:
+                messages.error(request, 'Por favor, preencha todos os campos obrigatórios.')
+                return render(request, 'authentication/register.html')
+            
+            if password != password_confirm:
+                messages.error(request, 'As senhas não coincidem.')
+                return render(request, 'authentication/register.html')
+            
+            # Verificar se username já existe
+            if User.objects.filter(username=username).exists():
+                messages.error(request, 'Este nome de usuário já está em uso.')
+                return render(request, 'authentication/register.html')
+            
+            # Verificar se email já existe
+            if User.objects.filter(email=email).exists():
+                messages.error(request, 'Este email já está cadastrado.')
+                return render(request, 'authentication/register.html')
+            
+            # Validar campos de Transportadora
+            if user_type == 'TRANSPORTADORA':
+                company_name = request.POST.get('company_name')
+                cnpj = request.POST.get('cnpj')
+                
+                if not company_name or not cnpj:
+                    messages.error(request, 'Nome da empresa e CNPJ são obrigatórios para Transportadora.')
+                    return render(request, 'authentication/register.html')
+            
+            # Criar usuário
+            user = User.objects.create_user(
+                username=username,
+                email=email,
+                password=password,
+                user_type=user_type,
+                company_name=request.POST.get('company_name', ''),
+                cnpj=request.POST.get('cnpj', ''),
+                phone=request.POST.get('phone', ''),
+            )
+            
+            messages.success(request, 'Conta criada com sucesso! Faça login para continuar.')
+            return redirect('authentication:login')
+            
+        except Exception as e:
+            messages.error(request, f'Erro ao criar conta: {str(e)}')
+            return render(request, 'authentication/register.html')
+    
     return render(request, 'authentication/register.html')
 
 
@@ -237,4 +293,62 @@ def user_list_view(request):
     return render(request, 'authentication/user_list.html', {
         'users': users,
         'stats': stats
+    })
+
+
+@login_required
+def user_detail_view(request, pk):
+    """View para visualizar detalhes de um usuário específico"""
+    from django.shortcuts import get_object_or_404
+    
+    # Verificar permissão
+    if not (request.user.is_superuser or request.user.user_type == 'GR'):
+        # Usuários normais só podem ver seu próprio perfil
+        if request.user.id != pk:
+            messages.error(request, 'Você não tem permissão para visualizar este perfil.')
+            return redirect('authentication:profile')
+    
+    user = get_object_or_404(User, pk=pk)
+    
+    return render(request, 'authentication/user_detail.html', {
+        'user_profile': user
+    })
+
+
+@login_required
+def user_edit_view(request, pk):
+    """View para editar um usuário específico"""
+    from django.shortcuts import get_object_or_404
+    
+    # Verificar permissão
+    if not (request.user.is_superuser or request.user.user_type == 'GR'):
+        # Usuários normais só podem editar seu próprio perfil
+        if request.user.id != pk:
+            messages.error(request, 'Você não tem permissão para editar este perfil.')
+            return redirect('authentication:profile')
+    
+    user = get_object_or_404(User, pk=pk)
+    
+    if request.method == 'POST':
+        # Atualizar dados do usuário
+        user.first_name = request.POST.get('first_name', user.first_name)
+        user.last_name = request.POST.get('last_name', user.last_name)
+        user.email = request.POST.get('email', user.email)
+        
+        if user.user_type == 'TRANSPORTADORA':
+            user.company_name = request.POST.get('company_name', user.company_name)
+            user.cnpj = request.POST.get('cnpj', user.cnpj)
+            user.phone = request.POST.get('phone', user.phone)
+        
+        # Apenas admin/GR pode alterar status e tipo
+        if request.user.is_superuser or request.user.user_type == 'GR':
+            user.is_active = request.POST.get('is_active') == 'on'
+            user.is_verified = request.POST.get('is_verified') == 'on'
+        
+        user.save()
+        messages.success(request, 'Usuário atualizado com sucesso!')
+        return redirect('authentication:user-detail', pk=user.pk)
+    
+    return render(request, 'authentication/user_edit.html', {
+        'user_profile': user
     })

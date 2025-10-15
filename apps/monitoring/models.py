@@ -2,6 +2,7 @@
 Modelo de Sistema de Monitoramento (SM).
 """
 import logging
+import math
 from django.db import models
 from django.core.exceptions import ValidationError
 from django.utils import timezone
@@ -12,6 +13,33 @@ from apps.vehicles.models import Vehicle
 from apps.routes.models import Route
 
 logger = logging.getLogger(__name__)
+
+
+def haversine_distance(lat1, lon1, lat2, lon2):
+    """
+    Calcula a distância em metros entre dois pontos usando fórmula de Haversine.
+    
+    Args:
+        lat1, lon1: Coordenadas do ponto 1
+        lat2, lon2: Coordenadas do ponto 2
+    
+    Returns:
+        float: Distância em metros
+    """
+    R = 6371000  # Raio da Terra em metros
+    
+    lat1_rad = math.radians(float(lat1))
+    lat2_rad = math.radians(float(lat2))
+    delta_lat = math.radians(float(lat2) - float(lat1))
+    delta_lon = math.radians(float(lon2) - float(lon1))
+    
+    a = (math.sin(delta_lat / 2) ** 2 +
+         math.cos(lat1_rad) * math.cos(lat2_rad) *
+         math.sin(delta_lon / 2) ** 2)
+    
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    
+    return R * c
 
 
 class MonitoringSystem(models.Model):
@@ -141,6 +169,89 @@ class MonitoringSystem(models.Model):
         'Observações',
         blank=True,
         null=True
+    )
+    
+    # 🆕 Análise de Viagem e Desvios
+    route_deviation_tolerance_meters = models.IntegerField(
+        'Tolerância Desvio de Rota (m)',
+        default=200,
+        help_text='Distância máxima permitida da rota planejada antes de alertar (em metros)'
+    )
+    
+    total_distance_traveled = models.DecimalField(
+        'Distância Total Percorrida (km)',
+        max_digits=10,
+        decimal_places=2,
+        default=0,
+        help_text='Distância total calculada a partir das posições capturadas'
+    )
+    
+    max_speed_recorded = models.DecimalField(
+        'Velocidade Máxima Registrada (km/h)',
+        max_digits=5,
+        decimal_places=2,
+        null=True,
+        blank=True
+    )
+    
+    average_speed = models.DecimalField(
+        'Velocidade Média (km/h)',
+        max_digits=5,
+        decimal_places=2,
+        null=True,
+        blank=True
+    )
+    
+    total_stops = models.IntegerField(
+        'Total de Paradas',
+        default=0,
+        help_text='Número de paradas detectadas (velocidade = 0 por mais de 5 min)'
+    )
+    
+    total_route_deviations = models.IntegerField(
+        'Total de Desvios de Rota',
+        default=0,
+        help_text='Número de vezes que o veículo saiu da rota planejada'
+    )
+    
+    has_active_deviation = models.BooleanField(
+        'Desvio Ativo',
+        default=False,
+        help_text='Indica se o veículo está atualmente fora da rota'
+    )
+    
+    last_deviation_detected_at = models.DateTimeField(
+        'Último Desvio Detectado em',
+        null=True,
+        blank=True
+    )
+    
+    # 🆕 Controle de Paradas Prolongadas
+    is_currently_stopped = models.BooleanField(
+        'Veículo Parado Atualmente',
+        default=False,
+        help_text='Indica se o veículo está parado no momento (velocidade = 0)'
+    )
+    
+    stopped_since = models.DateTimeField(
+        'Parado Desde',
+        null=True,
+        blank=True,
+        help_text='Data/hora em que o veículo parou (velocidade chegou a 0)'
+    )
+    
+    last_stop_alert_at = models.DateTimeField(
+        'Último Alerta de Parada em',
+        null=True,
+        blank=True,
+        help_text='Data/hora do último alerta de parada prolongada'
+    )
+    
+    alerts_data = models.JSONField(
+        'Dados de Alertas',
+        default=list,
+        blank=True,
+        help_text='Histórico de alertas gerados durante a viagem'
     )
     
     # Controle
@@ -291,6 +402,496 @@ class MonitoringSystem(models.Model):
                 'total_points': len(positions)
             }
         }
+    
+    def check_route_deviation(self, current_lat, current_lng):
+        """
+        Verifica se a posição atual está dentro da tolerância da rota planejada.
+        
+        Usa a geometria da rota (coordenadas reais das ruas) para calcular
+        a distância mínima do veículo até a linha da rota.
+        
+        Args:
+            current_lat: Latitude atual
+            current_lng: Longitude atual
+        
+        Returns:
+            dict: {
+                'is_deviated': bool,
+                'min_distance': float (metros),
+                'tolerance': int (metros),
+                'nearest_point': dict ou None
+            }
+        """
+        if not self.route:
+            logger.warning(f"{self.identifier}: Sem rota definida")
+            return {
+                'is_deviated': False,
+                'min_distance': None,
+                'tolerance': self.route_deviation_tolerance_meters,
+                'nearest_point': None,
+                'reason': 'Nenhuma rota definida'
+            }
+        
+        # ✅ USAR GEOMETRIA DA ROTA (coordenadas reais das ruas)
+        if self.route.route_geometry and self.route.route_geometry.get('coordinates'):
+            # Geometria está no formato GeoJSON: [longitude, latitude]
+            route_points = self.route.route_geometry['coordinates']
+            
+            logger.debug(
+                f"{self.identifier}: Verificando desvio usando {len(route_points)} pontos da rota"
+            )
+            
+            # Calcular distância mínima até qualquer segmento da rota
+            min_distance = float('inf')
+            nearest_point = None
+            nearest_segment_idx = None
+            
+            for i in range(len(route_points)):
+                # Converter de [lng, lat] para [lat, lng]
+                point_lat = route_points[i][1]
+                point_lng = route_points[i][0]
+                
+                # Distância até este ponto da rota
+                distance = haversine_distance(
+                    current_lat, current_lng,
+                    point_lat, point_lng
+                )
+                
+                if distance < min_distance:
+                    min_distance = distance
+                    nearest_point = {
+                        'latitude': point_lat,
+                        'longitude': point_lng,
+                        'segment_index': i
+                    }
+                    nearest_segment_idx = i
+            
+            # Verificar se está fora da tolerância
+            is_deviated = min_distance > self.route_deviation_tolerance_meters
+            
+            logger.info(
+                f"{self.identifier}: Distância da rota: {min_distance:.1f}m "
+                f"(tolerância: {self.route_deviation_tolerance_meters}m) - "
+                f"{'DESVIADO' if is_deviated else 'OK'} - "
+                f"Segmento mais próximo: {nearest_segment_idx}/{len(route_points)}"
+            )
+            
+            return {
+                'is_deviated': is_deviated,
+                'min_distance': round(min_distance, 2),
+                'tolerance': self.route_deviation_tolerance_meters,
+                'nearest_point': nearest_point,
+                'total_route_points': len(route_points)
+            }
+        
+        # 🔄 FALLBACK: Se não tem geometria, usar apenas origem e destino
+        logger.warning(
+            f"{self.identifier}: Rota sem geometria, usando apenas origem/destino"
+        )
+        
+        waypoints_to_check = []
+        
+        if self.route.origin_latitude and self.route.origin_longitude:
+            waypoints_to_check.append({
+                'name': self.route.origin_name or 'Origem',
+                'lat': self.route.origin_latitude,
+                'lng': self.route.origin_longitude,
+            })
+        
+        if self.route.destination_latitude and self.route.destination_longitude:
+            waypoints_to_check.append({
+                'name': self.route.destination_name or 'Destino',
+                'lat': self.route.destination_latitude,
+                'lng': self.route.destination_longitude,
+            })
+        
+        if not waypoints_to_check:
+            logger.error(f"{self.identifier}: Rota sem coordenadas!")
+            return {
+                'is_deviated': False,
+                'min_distance': None,
+                'tolerance': self.route_deviation_tolerance_meters,
+                'nearest_point': None,
+                'reason': 'Rota sem coordenadas definidas'
+            }
+        
+        # Calcular distância mínima até origem ou destino
+        min_distance = float('inf')
+        nearest_point = None
+        
+        for wp in waypoints_to_check:
+            distance = haversine_distance(
+                current_lat, current_lng,
+                wp['lat'], wp['lng']
+            )
+            
+            if distance < min_distance:
+                min_distance = distance
+                nearest_point = {
+                    'name': wp['name'],
+                    'latitude': wp['lat'],
+                    'longitude': wp['lng']
+                }
+        
+        # Verificar se está fora da tolerância
+        is_deviated = min_distance > self.route_deviation_tolerance_meters
+        
+        logger.warning(
+            f"{self.identifier}: Usando fallback - Distância: {min_distance:.1f}m - "
+            f"{'DESVIADO' if is_deviated else 'OK'}"
+        )
+        
+        return {
+            'is_deviated': is_deviated,
+            'min_distance': round(min_distance, 2),
+            'tolerance': self.route_deviation_tolerance_meters,
+            'nearest_point': nearest_point
+        }
+    
+    def add_alert(self, alert_type, severity, message, position_data=None):
+        """
+        Adiciona um alerta ao histórico de alertas da viagem.
+        
+        Args:
+            alert_type: Tipo do alerta ('route_deviation', 'stop', 'speeding', etc)
+            severity: Gravidade ('info', 'warning', 'critical')
+            message: Mensagem descritiva
+            position_data: Dados da posição quando o alerta foi gerado (opcional)
+        """
+        alert = {
+            'timestamp': timezone.now().isoformat(),
+            'type': alert_type,
+            'severity': severity,
+            'message': message,
+            'position': position_data
+        }
+        
+        if not isinstance(self.alerts_data, list):
+            self.alerts_data = []
+        
+        self.alerts_data.append(alert)
+        self.save(update_fields=['alerts_data'])
+        
+        logger.info(
+            f"Alerta adicionado: {self.identifier} - "
+            f"{alert_type} ({severity}): {message}"
+        )
+        
+        return alert
+    
+    def analyze_current_position(self):
+        """
+        Analisa a posição atual do veículo e gera alertas se necessário.
+        
+        Verifica:
+        - Desvio de rota
+        - Velocidade excessiva
+        - Parada não planejada
+        
+        Returns:
+            dict: Resultado da análise com possíveis alertas
+        """
+        if self.status != 'EM_ANDAMENTO':
+            return {
+                'success': False,
+                'reason': 'Viagem não está em andamento'
+            }
+        
+        position = self.current_vehicle_position
+        if not position:
+            return {
+                'success': False,
+                'reason': 'Nenhuma posição disponível'
+            }
+        
+        lat = position['latitude']
+        lng = position['longitude']
+        speed = position['speed'] or 0
+        
+        logger.info(
+            f"{self.identifier}: Velocidade recebida: {position['speed']} → "
+            f"Velocidade tratada: {speed} (tipo: {type(speed).__name__})"
+        )
+        
+        alerts_generated = []
+        
+        # 1. Verificar desvio de rota
+        deviation_check = self.check_route_deviation(lat, lng)
+        
+        if deviation_check['is_deviated']:
+            # Gerar alerta se for um novo desvio OU se já passou tempo suficiente desde o último alerta
+            should_alert = False
+            alert_message = ""
+            
+            if not self.has_active_deviation:
+                # Primeiro desvio
+                should_alert = True
+                alert_message = (
+                    f"⚠️ Veículo desviou da rota! Distância: {deviation_check['min_distance']:.0f}m "
+                    f"(tolerância: {deviation_check['tolerance']}m)"
+                )
+            else:
+                # Já está desviado - gerar novo alerta a cada 2 minutos
+                if self.last_deviation_detected_at:
+                    minutes_since_last_alert = (timezone.now() - self.last_deviation_detected_at).total_seconds() / 60
+                    logger.info(
+                        f"{self.identifier}: Já desviado. Minutos desde último alerta: {minutes_since_last_alert:.1f}"
+                    )
+                    if minutes_since_last_alert >= 2:
+                        should_alert = True
+                        alert_message = (
+                            f"⚠️ Veículo CONTINUA fora da rota há {int(minutes_since_last_alert)} minutos! "
+                            f"Distância: {deviation_check['min_distance']:.0f}m "
+                            f"(tolerância: {deviation_check['tolerance']}m)"
+                        )
+                        logger.info(
+                            f"{self.identifier}: GERANDO ALERTA PERIÓDICO (>= 2 min)"
+                        )
+                    else:
+                        logger.info(
+                            f"{self.identifier}: Ainda não completou 2 min para próximo alerta "
+                            f"(faltam {2 - minutes_since_last_alert:.1f} min)"
+                        )
+                else:
+                    # Caso raro: tem desvio ativo mas sem timestamp
+                    should_alert = True
+                    alert_message = (
+                        f"⚠️ Veículo continua fora da rota. Distância: {deviation_check['min_distance']:.0f}m "
+                        f"(tolerância: {deviation_check['tolerance']}m)"
+                    )
+                    logger.warning(
+                        f"{self.identifier}: Desvio ativo mas sem timestamp do último alerta"
+                    )
+            
+            if should_alert:
+                alert = self.add_alert(
+                    alert_type='route_deviation',
+                    severity='warning',
+                    message=alert_message,
+                    position_data={
+                        'latitude': lat,
+                        'longitude': lng,
+                        'nearest_point': deviation_check.get('nearest_point'),
+                        'distance': deviation_check['min_distance']
+                    }
+                )
+                alerts_generated.append(alert)
+                
+                # Atualizar campos
+                if not self.has_active_deviation:
+                    self.total_route_deviations += 1
+                
+                self.has_active_deviation = True
+                self.last_deviation_detected_at = timezone.now()
+                self.save(update_fields=[
+                    'has_active_deviation',
+                    'last_deviation_detected_at',
+                    'total_route_deviations'
+                ])
+        else:
+            # Voltou para a rota
+            if self.has_active_deviation:
+                # Calcular quanto tempo ficou fora da rota
+                time_off_route = ""
+                if self.last_deviation_detected_at:
+                    duration_minutes = (timezone.now() - self.last_deviation_detected_at).total_seconds() / 60
+                    if duration_minutes < 60:
+                        time_off_route = f" (ficou fora por {int(duration_minutes)} minutos)"
+                    else:
+                        hours = int(duration_minutes / 60)
+                        mins = int(duration_minutes % 60)
+                        time_off_route = f" (ficou fora por {hours}h{mins}min)"
+                
+                alert = self.add_alert(
+                    alert_type='route_back',
+                    severity='info',
+                    message=f"✅ Veículo retornou à rota planejada{time_off_route}",
+                    position_data={
+                        'latitude': lat,
+                        'longitude': lng
+                    }
+                )
+                alerts_generated.append(alert)
+                
+                self.has_active_deviation = False
+                self.save(update_fields=['has_active_deviation'])
+        
+        # 2. Atualizar velocidade máxima
+        if speed > 0:
+            if not self.max_speed_recorded or speed > float(self.max_speed_recorded):
+                self.max_speed_recorded = speed
+                self.save(update_fields=['max_speed_recorded'])
+        
+        # 3. 🆕 Detectar paradas prolongadas (velocidade = 0 por 5+ minutos)
+        if speed == 0:
+            # Veículo está parado
+            if not self.is_currently_stopped:
+                # Acabou de parar
+                self.is_currently_stopped = True
+                self.stopped_since = timezone.now()
+                self.save(update_fields=['is_currently_stopped', 'stopped_since'])
+                logger.info(f"{self.identifier}: Veículo parou às {self.stopped_since}")
+            else:
+                # Já estava parado - verificar se passou tempo suficiente para alertar
+                if self.stopped_since:
+                    minutes_stopped = (timezone.now() - self.stopped_since).total_seconds() / 60
+                    
+                    # Gerar alerta se parado por 5+ minutos
+                    if minutes_stopped >= 5:
+                        # Verificar se deve gerar novo alerta (a cada 5 minutos)
+                        should_alert_stop = False
+                        
+                        if not self.last_stop_alert_at:
+                            # Primeiro alerta de parada
+                            should_alert_stop = True
+                        else:
+                            # Verificar se já passou 5 min desde o último alerta
+                            minutes_since_last_stop_alert = (
+                                timezone.now() - self.last_stop_alert_at
+                            ).total_seconds() / 60
+                            if minutes_since_last_stop_alert >= 5:
+                                should_alert_stop = True
+                        
+                        if should_alert_stop:
+                            alert = self.add_alert(
+                                alert_type='prolonged_stop',
+                                severity='warning',
+                                message=(
+                                    f"🛑 Veículo parado há {int(minutes_stopped)} minutos! "
+                                    f"Local: {position.get('address', 'Desconhecido')}"
+                                ),
+                                position_data={
+                                    'latitude': lat,
+                                    'longitude': lng,
+                                    'stopped_since': self.stopped_since.isoformat(),
+                                    'minutes_stopped': int(minutes_stopped)
+                                }
+                            )
+                            alerts_generated.append(alert)
+                            
+                            # Incrementar contador apenas no primeiro alerta desta parada
+                            first_alert_of_this_stop = (self.last_stop_alert_at is None)
+                            if first_alert_of_this_stop:
+                                self.total_stops += 1
+                            
+                            self.last_stop_alert_at = timezone.now()
+                            self.save(update_fields=['last_stop_alert_at', 'total_stops'])
+                            
+                            logger.warning(
+                                f"{self.identifier}: ALERTA - Parado há {int(minutes_stopped)} minutos"
+                            )
+        else:
+            # Veículo está em movimento
+            if self.is_currently_stopped:
+                # Estava parado e voltou a se mover
+                duration_stopped = ""
+                if self.stopped_since:
+                    minutes_stopped = (timezone.now() - self.stopped_since).total_seconds() / 60
+                    if minutes_stopped < 60:
+                        duration_stopped = f" (ficou parado por {int(minutes_stopped)} minutos)"
+                    else:
+                        hours = int(minutes_stopped / 60)
+                        mins = int(minutes_stopped % 60)
+                        duration_stopped = f" (ficou parado por {hours}h{mins}min)"
+                
+                alert = self.add_alert(
+                    alert_type='movement_resumed',
+                    severity='info',
+                    message=f"🚗 Veículo voltou a se mover{duration_stopped}",
+                    position_data={
+                        'latitude': lat,
+                        'longitude': lng
+                    }
+                )
+                alerts_generated.append(alert)
+                
+                self.is_currently_stopped = False
+                self.stopped_since = None
+                self.last_stop_alert_at = None
+                self.save(update_fields=[
+                    'is_currently_stopped',
+                    'stopped_since',
+                    'last_stop_alert_at'
+                ])
+                
+                logger.info(f"{self.identifier}: Veículo voltou a se mover")
+        
+        return {
+            'success': True,
+            'position': position,
+            'deviation_check': deviation_check,
+            'alerts_generated': alerts_generated,
+            'stats': {
+                'has_active_deviation': self.has_active_deviation,
+                'total_deviations': self.total_route_deviations,
+                'max_speed': float(self.max_speed_recorded) if self.max_speed_recorded else 0,
+                'is_currently_stopped': self.is_currently_stopped,
+                'total_stops': self.total_stops
+            }
+        }
+    
+    def update_trip_statistics(self):
+        """
+        Atualiza estatísticas da viagem com base no histórico de posições.
+        
+        Calcula:
+        - Distância total percorrida
+        - Velocidade média
+        - Total de paradas
+        """
+        positions = list(
+            self.position_history.order_by('device_timestamp').values(
+                'latitude', 'longitude', 'speed', 'device_timestamp'
+            )
+        )
+        
+        if len(positions) < 2:
+            return
+        
+        # Calcular distância total
+        total_distance_m = 0
+        speeds = []
+        stops = 0
+        
+        for i in range(1, len(positions)):
+            prev = positions[i - 1]
+            curr = positions[i]
+            
+            # Distância entre pontos consecutivos
+            distance = haversine_distance(
+                prev['latitude'], prev['longitude'],
+                curr['latitude'], curr['longitude']
+            )
+            total_distance_m += distance
+            
+            # Coletar velocidades
+            if curr['speed'] is not None:
+                speeds.append(float(curr['speed']))
+                
+                # Detectar paradas
+                if float(curr['speed']) == 0:
+                    stops += 1
+        
+        # Atualizar campos
+        self.total_distance_traveled = total_distance_m / 1000  # converter para km
+        
+        if speeds:
+            self.average_speed = sum(speeds) / len(speeds)
+        
+        self.total_stops = stops
+        
+        self.save(update_fields=[
+            'total_distance_traveled',
+            'average_speed',
+            'total_stops'
+        ])
+        
+        logger.info(
+            f"Estatísticas atualizadas: {self.identifier} - "
+            f"{self.total_distance_traveled:.2f}km, "
+            f"Vel.Média: {self.average_speed:.1f}km/h, "
+            f"Paradas: {self.total_stops}"
+        )
     
     def validate_device_update(self):
         """

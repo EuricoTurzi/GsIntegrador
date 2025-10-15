@@ -1,6 +1,10 @@
-{% extends 'base.html' %} {% block title %}Usuários - Sistema Integrador GR{%
-endblock %} {% block page_title %}Gerenciar Usuários{% endblock %} {% block
-breadcrumbs %}
+{% extends 'base.html' %}
+
+{% block title %}Usuários - Sistema Integrador GR{% endblock %}
+
+{% block page_title %}Gerenciar Usuários{% endblock %}
+
+{% block breadcrumbs %}
 <nav class="flex mb-6" aria-label="Breadcrumb">
   <ol class="inline-flex items-center space-x-1 md:space-x-3">
     <li class="inline-flex items-center">
@@ -19,7 +23,9 @@ breadcrumbs %}
     </li>
   </ol>
 </nav>
-{% endblock %} {% block content %}
+{% endblock %}
+
+{% block content %}
 
 <!-- Stats Cards -->
 <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
@@ -279,8 +285,13 @@ breadcrumbs %}
               <i
                 class="fas {% if user.is_superuser or user.user_type == 'GR' %}fa-shield-alt{% else %}fa-building{% endif %} mr-1"
               ></i>
-              {% if user.is_superuser %}Super{% elif user.user_type == 'GR'
-              %}GR{% else %}Transp.{% endif %}
+              {% if user.is_superuser %}
+                Super
+              {% elif user.user_type == 'GR' %}
+                GR
+              {% else %}
+                Transp.
+              {% endif %}
             </span>
           </td>
           <td class="px-6 py-4 whitespace-nowrap">
@@ -294,9 +305,10 @@ breadcrumbs %}
             </span>
           </td>
           <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-            {% if user.last_login %} {{ user.last_login|date:"d/m/Y H:i" }} {%
-            else %}
-            <span class="text-gray-400">Nunca</span>
+            {% if user.last_login %}
+              {{ user.last_login|date:"d/m/Y H:i" }}
+            {% else %}
+              <span class="text-gray-400">Nunca</span>
             {% endif %}
           </td>
           <td
@@ -387,21 +399,26 @@ breadcrumbs %}
         >
           <i class="fas fa-chevron-left"></i>
         </span>
-        {% endif %} {% for num in users.paginator.page_range %} {% if
-        users.number == num %}
-        <span
-          class="relative inline-flex items-center px-4 py-2 border border-primary-500 bg-primary-50 text-sm font-medium text-primary-600"
-        >
-          {{ num }}
-        </span>
-        {% elif num > users.number|add:-3 and num < users.number|add:3 %}
-        <a
-          href="?page={{ num }}"
-          class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50"
-        >
-          {{ num }}
-        </a>
-        {% endif %} {% endfor %} {% if users.has_next %}
+        {% endif %}
+        
+        {% for num in users.paginator.page_range %}
+          {% if users.number == num %}
+            <span
+              class="relative inline-flex items-center px-4 py-2 border border-primary-500 bg-primary-50 text-sm font-medium text-primary-600"
+            >
+              {{ num }}
+            </span>
+          {% elif num > users.number|add:-3 and num < users.number|add:3 %}
+            <a
+              href="?page={{ num }}"
+              class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50"
+            >
+              {{ num }}
+            </a>
+          {% endif %}
+        {% endfor %}
+        
+        {% if users.has_next %}
         <a
           href="?page={{ users.next_page_number }}"
           class="relative inline-flex items-center px-3 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50"

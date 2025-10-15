@@ -239,6 +239,7 @@ def broadcast_fleet_positions():
     """
     Busca posições de todas viagens ativas e envia via WebSocket
     Task executada periodicamente (a cada 30 segundos)
+    🆕 AGORA TAMBÉM ANALISA DESVIOS EM TEMPO REAL
     """
     try:
         from channels.layers import get_channel_layer
@@ -248,17 +249,77 @@ def broadcast_fleet_positions():
         
         # Buscar todas viagens ativas
         trips = MonitoringSystem.objects.filter(
-            status='EM_ANDAMENTO'
+            status='EM_ANDAMENTO',
+            is_active=True
         ).select_related('vehicle', 'vehicle__device', 'driver', 'route', 'transportadora')
         
         positions_by_transportadora = {}
         all_positions = []
+        total_alerts = 0
         
         for trip in trips:
             position = trip.current_vehicle_position
             if position:
                 # 🆕 SALVAR POSIÇÃO NO HISTÓRICO
                 trip.save_position_snapshot()
+                
+                # 🆕 ANALISAR POSIÇÃO E VERIFICAR DESVIOS
+                try:
+                    logger.info(f"Analisando viagem {trip.identifier}...")
+                    analysis = trip.analyze_current_position()
+                    
+                    if not analysis.get('success'):
+                        logger.debug(
+                            f"Análise não bem-sucedida para {trip.identifier}: "
+                            f"{analysis.get('reason', 'Sem motivo especificado')}"
+                        )
+                    
+                    # Se foram gerados alertas, enviar via WebSocket
+                    if analysis.get('success') and analysis.get('alerts_generated'):
+                        total_alerts += len(analysis['alerts_generated'])
+                        
+                        for alert in analysis['alerts_generated']:
+                            # Enviar alerta para o grupo específico da viagem
+                            async_to_sync(channel_layer.group_send)(
+                                f'trip_{trip.id}',
+                                {
+                                    'type': 'trip_alert',
+                                    'data': {
+                                        'trip_id': trip.id,
+                                        'identifier': trip.identifier,
+                                        'alert': alert,
+                                        'current_stats': analysis.get('stats', {})
+                                    }
+                                }
+                            )
+                            
+                            # Enviar também para o grupo da transportadora
+                            async_to_sync(channel_layer.group_send)(
+                                f'fleet_transportadora_{trip.transportadora_id}',
+                                {
+                                    'type': 'trip_alert',
+                                    'data': {
+                                        'trip_id': trip.id,
+                                        'identifier': trip.identifier,
+                                        'alert': alert,
+                                        'driver': trip.driver.nome,
+                                        'vehicle': trip.vehicle.placa
+                                    }
+                                }
+                            )
+                            
+                            logger.warning(
+                                f"⚠️ ALERTA VIA WEBSOCKET: {trip.identifier} - "
+                                f"{alert['type']} ({alert['severity']}): {alert['message']}"
+                            )
+                    else:
+                        if analysis.get('success'):
+                            logger.debug(f"Nenhum alerta gerado para {trip.identifier}")
+                except Exception as e:
+                    logger.error(
+                        f"Erro ao analisar posição da viagem {trip.identifier}: {str(e)}",
+                        exc_info=True
+                    )
                 
                 position_data = {
                     'trip_id': trip.id,
@@ -313,16 +374,117 @@ def broadcast_fleet_positions():
                 }
             )
         
-        logger.info(f"Broadcast de {len(all_positions)} posições enviado")
+        logger.info(f"Broadcast de {len(all_positions)} posições enviado, {total_alerts} alertas gerados")
         
         return {
             'success': True,
             'positions_sent': len(all_positions),
-            'transportadoras': len(positions_by_transportadora)
+            'transportadoras': len(positions_by_transportadora),
+            'alerts_generated': total_alerts
         }
         
     except Exception as e:
         logger.error(f"Erro ao fazer broadcast de posições: {str(e)}")
+        return {
+            'success': False,
+            'error': str(e)
+        }
+
+
+@shared_task(name='monitoring.analyze_active_trips')
+def analyze_active_trips():
+    """
+    🆕 Analisa todas viagens ativas para detectar desvios de rota e gerar alertas.
+    Task executada a cada 1 minuto.
+    
+    Para cada viagem ativa:
+    - Verifica desvio de rota
+    - Detecta paradas não planejadas
+    - Monitora velocidade
+    - Envia alertas em tempo real via WebSocket
+    """
+    try:
+        from channels.layers import get_channel_layer
+        from asgiref.sync import async_to_sync
+        
+        channel_layer = get_channel_layer()
+        
+        trips = MonitoringSystem.objects.filter(
+            status='EM_ANDAMENTO',
+            is_active=True
+        ).select_related('vehicle', 'vehicle__device', 'driver', 'route', 'transportadora')
+        
+        total_alerts = 0
+        trips_analyzed = 0
+        
+        for trip in trips:
+            try:
+                # Analisar posição atual
+                analysis = trip.analyze_current_position()
+                
+                if analysis['success']:
+                    trips_analyzed += 1
+                    
+                    # Se foram gerados alertas, enviar via WebSocket
+                    if analysis['alerts_generated']:
+                        total_alerts += len(analysis['alerts_generated'])
+                        
+                        for alert in analysis['alerts_generated']:
+                            # Enviar alerta para o grupo específico da viagem
+                            async_to_sync(channel_layer.group_send)(
+                                f'trip_{trip.id}',
+                                {
+                                    'type': 'trip_alert',
+                                    'data': {
+                                        'trip_id': trip.id,
+                                        'identifier': trip.identifier,
+                                        'alert': alert,
+                                        'current_stats': analysis['stats']
+                                    }
+                                }
+                            )
+                            
+                            # Enviar também para o grupo da transportadora
+                            async_to_sync(channel_layer.group_send)(
+                                f'fleet_transportadora_{trip.transportadora_id}',
+                                {
+                                    'type': 'trip_alert',
+                                    'data': {
+                                        'trip_id': trip.id,
+                                        'identifier': trip.identifier,
+                                        'alert': alert,
+                                        'driver': trip.driver.nome,
+                                        'vehicle': trip.vehicle.placa
+                                    }
+                                }
+                            )
+                            
+                            logger.warning(
+                                f"⚠️ Alerta gerado: {trip.identifier} - "
+                                f"{alert['type']} ({alert['severity']}): {alert['message']}"
+                            )
+                    
+                    # Atualizar estatísticas da viagem periodicamente (a cada análise)
+                    if trips_analyzed % 5 == 0:  # Atualizar stats a cada 5 análises
+                        trip.update_trip_statistics()
+                        
+            except Exception as e:
+                logger.error(f"Erro ao analisar viagem {trip.identifier}: {str(e)}")
+                continue
+        
+        logger.info(
+            f"Análise de viagens concluída: {trips_analyzed} viagens analisadas, "
+            f"{total_alerts} alertas gerados"
+        )
+        
+        return {
+            'success': True,
+            'trips_analyzed': trips_analyzed,
+            'total_alerts': total_alerts
+        }
+        
+    except Exception as e:
+        logger.error(f"Erro ao analisar viagens ativas: {str(e)}")
         return {
             'success': False,
             'error': str(e)

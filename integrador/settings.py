@@ -282,6 +282,10 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'monitoring.broadcast_fleet_positions',  # Nome registrado no @shared_task
         'schedule': 30.0,  # A cada 30 segundos
     },
+    'analyze-active-trips-every-minute': {
+        'task': 'monitoring.analyze_active_trips',  # 🆕 Análise de desvios de rota
+        'schedule': crontab(minute='*'),  # A cada 1 minuto
+    },
 }
 
 # ===================================================================

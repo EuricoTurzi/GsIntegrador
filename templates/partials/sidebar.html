@@ -8,9 +8,10 @@
   <div
     class="flex items-center justify-between h-16 px-4 border-b border-gray-700"
   >
-    <div class="flex items-center space-x-3" x-show="sidebarOpen">
+    <!-- Expanded Logo -->
+    <div class="flex items-center space-x-3" x-show="sidebarOpen" x-transition>
       <div
-        class="w-10 h-10 bg-primary-500 rounded-lg flex items-center justify-center"
+        class="w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-600 rounded-xl flex items-center justify-center shadow-lg"
       >
         <i class="fas fa-truck-fast text-white text-xl"></i>
       </div>
@@ -19,13 +20,28 @@
         <p class="text-xs text-gray-400">Gerenciamento de Risco</p>
       </div>
     </div>
+    
+    <!-- Collapsed Logo -->
+    <div x-show="!sidebarOpen" x-transition class="flex items-center justify-center w-full">
+      <div
+        class="w-12 h-12 bg-gradient-to-br from-primary-500 to-primary-600 rounded-full flex items-center justify-center shadow-lg transform hover:scale-110 transition-transform cursor-pointer"
+        @click="sidebarOpen = true"
+        data-tooltip="GR System - Clique para expandir"
+      >
+        <i class="fas fa-truck-fast text-white text-xl"></i>
+      </div>
+    </div>
+    
+    <!-- Toggle Button -->
     <button
       @click="sidebarOpen = !sidebarOpen"
-      class="p-2 rounded-lg hover:bg-gray-700 transition-colors"
+      class="p-2 rounded-lg hover:bg-gray-700 transition-all hover:scale-110"
+      x-show="sidebarOpen"
+      data-tooltip="Recolher menu"
     >
       <i
         :class="sidebarOpen ? 'fa-angles-left' : 'fa-angles-right'"
-        class="fas"
+        class="fas text-gray-400 hover:text-white"
       ></i>
     </button>
   </div>
@@ -36,9 +52,10 @@
     <a
       href="{% url 'dashboard' %}"
       class="flex items-center px-3 py-2.5 rounded-lg hover:bg-gray-700 transition-colors group {% if request.resolver_match.url_name == 'dashboard' %}bg-gray-700 text-primary-400{% endif %}"
+      :data-tooltip="!sidebarOpen ? 'Dashboard' : null"
     >
-      <i class="fas fa-home w-6 text-center"></i>
-      <span x-show="sidebarOpen" class="ml-3 font-medium">Dashboard</span>
+      <i class="fas fa-home w-6 text-center group-hover:scale-110 transition-transform"></i>
+      <span x-show="sidebarOpen" class="ml-3 font-medium" x-transition>Dashboard</span>
     </a>
 
     <!-- Divider -->
@@ -54,36 +71,40 @@
     <a
       href="{% url 'drivers-list' %}"
       class="flex items-center px-3 py-2.5 rounded-lg hover:bg-gray-700 transition-colors group {% if 'drivers' in request.path %}bg-gray-700 text-primary-400{% endif %}"
+      :data-tooltip="!sidebarOpen ? 'Motoristas' : null"
     >
-      <i class="fas fa-user-tie w-6 text-center"></i>
-      <span x-show="sidebarOpen" class="ml-3 font-medium">Motoristas</span>
+      <i class="fas fa-user-tie w-6 text-center group-hover:scale-110 transition-transform"></i>
+      <span x-show="sidebarOpen" class="ml-3 font-medium" x-transition>Motoristas</span>
     </a>
 
     <!-- Vehicles -->
     <a
       href="{% url 'vehicles-list' %}"
       class="flex items-center px-3 py-2.5 rounded-lg hover:bg-gray-700 transition-colors group {% if 'vehicles' in request.path %}bg-gray-700 text-primary-400{% endif %}"
+      :data-tooltip="!sidebarOpen ? 'Veículos' : null"
     >
-      <i class="fas fa-truck w-6 text-center"></i>
-      <span x-show="sidebarOpen" class="ml-3 font-medium">Veículos</span>
+      <i class="fas fa-truck w-6 text-center group-hover:scale-110 transition-transform"></i>
+      <span x-show="sidebarOpen" class="ml-3 font-medium" x-transition>Veículos</span>
     </a>
 
     <!-- Devices -->
     <a
       href="{% url 'devices-list' %}"
       class="flex items-center px-3 py-2.5 rounded-lg hover:bg-gray-700 transition-colors group {% if 'devices' in request.path %}bg-gray-700 text-primary-400{% endif %}"
+      :data-tooltip="!sidebarOpen ? 'Rastreadores' : null"
     >
-      <i class="fas fa-satellite-dish w-6 text-center"></i>
-      <span x-show="sidebarOpen" class="ml-3 font-medium">Rastreadores</span>
+      <i class="fas fa-satellite-dish w-6 text-center group-hover:scale-110 transition-transform"></i>
+      <span x-show="sidebarOpen" class="ml-3 font-medium" x-transition>Rastreadores</span>
     </a>
 
     <!-- Routes -->
     <a
       href="{% url 'routes-list' %}"
       class="flex items-center px-3 py-2.5 rounded-lg hover:bg-gray-700 transition-colors group {% if 'routes' in request.path %}bg-gray-700 text-primary-400{% endif %}"
+      :data-tooltip="!sidebarOpen ? 'Rotas' : null"
     >
-      <i class="fas fa-route w-6 text-center"></i>
-      <span x-show="sidebarOpen" class="ml-3 font-medium">Rotas</span>
+      <i class="fas fa-route w-6 text-center group-hover:scale-110 transition-transform"></i>
+      <span x-show="sidebarOpen" class="ml-3 font-medium" x-transition>Rotas</span>
     </a>
 
     <!-- Divider -->
@@ -99,18 +120,23 @@
     <a
       href="{% url 'monitoring_list' %}"
       class="flex items-center px-3 py-2.5 rounded-lg hover:bg-gray-700 transition-colors group {% if 'monitoring' in request.path %}bg-gray-700 text-primary-400{% endif %}"
+      :data-tooltip="!sidebarOpen ? 'Viagens' : null"
     >
-      <i class="fas fa-map-marked-alt w-6 text-center"></i>
-      <span x-show="sidebarOpen" class="ml-3 font-medium">Viagens</span>
+      <i class="fas fa-map-marked-alt w-6 text-center group-hover:scale-110 transition-transform"></i>
+      <span x-show="sidebarOpen" class="ml-3 font-medium" x-transition>Viagens</span>
     </a>
 
     <!-- Real-time Map -->
     <a
-      href="{% url 'monitoring_map' %}"
+      href="{% url 'integrations-status' %}"
       class="flex items-center px-3 py-2.5 rounded-lg hover:bg-gray-700 transition-colors group"
+      :data-tooltip="!sidebarOpen ? 'Mapa Tempo Real' : null"
     >
-      <i class="fas fa-map w-6 text-center"></i>
-      <span x-show="sidebarOpen" class="ml-3 font-medium">Mapa Tempo Real</span>
+      <i class="fas fa-map w-6 text-center group-hover:scale-110 transition-transform"></i>
+      <span x-show="sidebarOpen" class="ml-3 font-medium" x-transition>
+        Mapa Tempo Real
+        <span class="ml-2 text-xs text-yellow-400"></span>
+      </span>
     </a>
 
     {% if user.is_superuser or user.user_type == 'GR' %}
@@ -127,48 +153,61 @@
     <a
       href="{% url 'authentication:user-list' %}"
       class="flex items-center px-3 py-2.5 rounded-lg hover:bg-gray-700 transition-colors group {% if 'users' in request.path %}bg-gray-700 text-primary-400{% endif %}"
+      :data-tooltip="!sidebarOpen ? 'Usuários' : null"
     >
-      <i class="fas fa-users w-6 text-center"></i>
-      <span x-show="sidebarOpen" class="ml-3 font-medium">Usuários</span>
+      <i class="fas fa-users w-6 text-center group-hover:scale-110 transition-transform"></i>
+      <span x-show="sidebarOpen" class="ml-3 font-medium" x-transition>Usuários</span>
     </a>
 
     <!-- Integrations -->
     <a
       href="{% url 'integrations-status' %}"
       class="flex items-center px-3 py-2.5 rounded-lg hover:bg-gray-700 transition-colors group"
+      :data-tooltip="!sidebarOpen ? 'Integrações' : null"
     >
-      <i class="fas fa-plug w-6 text-center"></i>
-      <span x-show="sidebarOpen" class="ml-3 font-medium">Integrações</span>
+      <i class="fas fa-plug w-6 text-center group-hover:scale-110 transition-transform"></i>
+      <span x-show="sidebarOpen" class="ml-3 font-medium" x-transition>Integrações</span>
     </a>
     {% endif %}
   </nav>
 
   <!-- User Profile (at bottom) -->
   <div class="border-t border-gray-700 p-4">
-    <div class="flex items-center space-x-3" x-show="sidebarOpen">
+    <!-- Expanded Profile -->
+    <a 
+      href="{% url 'authentication:profile' %}"
+      class="flex items-center space-x-3 hover:bg-gray-700 p-2 rounded-lg transition-colors" 
+      x-show="sidebarOpen"
+      x-transition
+    >
       <div
-        class="w-10 h-10 bg-primary-500 rounded-full flex items-center justify-center font-bold"
+        class="w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-600 rounded-full flex items-center justify-center font-bold text-sm shadow-lg"
       >
         {{ user.username|slice:":2"|upper }}
       </div>
       <div class="flex-1 min-w-0">
         <p class="text-sm font-medium truncate">{{ user.username }}</p>
         <p class="text-xs text-gray-400 truncate">
-          {% if user.is_superuser %}Administrador {% elif user.user_type == 'GR'
-          %}Gerenciamento de Risco {% else %}{{
-          user.company_name|default:"Transportadora" }} {% endif %}
+          {% if user.is_superuser %}
+            Administrador
+          {% elif user.user_type == 'GR' %}
+            Gerenciamento de Risco
+          {% else %}
+            {{ user.company_name|default:"Transportadora" }}
+          {% endif %}
         </p>
       </div>
-    </div>
-    <button
-      x-show="!sidebarOpen"
-      class="w-full flex items-center justify-center p-2 rounded-lg hover:bg-gray-700"
-    >
-      <div
-        class="w-10 h-10 bg-primary-500 rounded-full flex items-center justify-center font-bold"
+    </a>
+    
+    <!-- Collapsed Profile -->
+    <div x-show="!sidebarOpen" x-transition class="flex items-center justify-center w-full">
+      <a
+        href="{% url 'authentication:profile' %}"
+        class="w-12 h-12 bg-gradient-to-br from-primary-500 to-primary-600 rounded-full flex items-center justify-center font-bold text-sm shadow-lg transform hover:scale-110 transition-transform cursor-pointer"
+        data-tooltip="{{ user.username }}"
       >
         {{ user.username|slice:":2"|upper }}
-      </div>
-    </button>
+      </a>
+    </div>
   </div>
 </aside>

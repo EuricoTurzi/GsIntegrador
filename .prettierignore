@@ -1,0 +1,13 @@
+# Django Templates
+templates/**/*.html
+**/templates/**/*.html
+
+# Static files
+static/
+staticfiles/
+media/
+
+# Python virtual environment
+venv/
+__pycache__/
+*.pyc

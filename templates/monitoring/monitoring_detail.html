@@ -7,6 +7,61 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
      crossorigin=""/>
+<style>
+    #tracking-map {
+        height: 600px !important;
+        width: 100% !important;
+        min-height: 600px !important;
+        background-color: #e5e7eb;
+        position: relative !important;
+        z-index: 1 !important;
+        display: block !important;
+        visibility: visible !important;
+    }
+    .leaflet-container {
+        height: 600px !important;
+        width: 100% !important;
+        z-index: 1 !important;
+        display: block !important;
+        visibility: visible !important;
+    }
+    .alert-item {
+        border-left: 4px solid;
+        transition: all 0.3s;
+        animation: slideIn 0.3s ease-out;
+    }
+    @keyframes slideIn {
+        from {
+            opacity: 0;
+            transform: translateX(-20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+    .alert-warning { border-left-color: #f59e0b; background-color: #fffbeb; }
+    .alert-critical { border-left-color: #ef4444; background-color: #fef2f2; }
+    .alert-info { border-left-color: #3b82f6; background-color: #eff6ff; }
+    .alert-success { border-left-color: #10b981; background-color: #f0fdf4; }
+    .stats-card {
+        transition: transform 0.2s;
+    }
+    .stats-card:hover {
+        transform: translateY(-2px);
+    }
+    .pulse-active {
+        animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+    @keyframes pulse {
+        0%, 100% {
+            opacity: 1;
+        }
+        50% {
+            opacity: .7;
+        }
+    }
+</style>
 {% endblock %}
 
 {% block content %}
@@ -21,21 +76,16 @@
                     </svg>
                 </a>
                 <h1 class="text-3xl font-bold text-gray-900">{{ trip.identifier }}</h1>
-                {% if trip.status == 'PLANEJADO' %}
-                <span class="px-3 py-1 inline-flex text-sm leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
-                    Planejado
+                <span id="trip-status-badge" class="px-3 py-1 inline-flex text-sm leading-5 font-semibold rounded-full 
+                    {% if trip.status == 'PLANEJADO' %}bg-yellow-100 text-yellow-800
+                    {% elif trip.status == 'EM_ANDAMENTO' %}bg-blue-100 text-blue-800
+                    {% elif trip.status == 'CONCLUIDO' %}bg-green-100 text-green-800
+                    {% else %}bg-red-100 text-red-800{% endif %}">
+                    {{ trip.get_status_display }}
                 </span>
-                {% elif trip.status == 'EM_ANDAMENTO' %}
-                <span class="px-3 py-1 inline-flex text-sm leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-                    Em Andamento
-                </span>
-                {% elif trip.status == 'CONCLUIDO' %}
-                <span class="px-3 py-1 inline-flex text-sm leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                    Concluído
-                </span>
-                {% else %}
-                <span class="px-3 py-1 inline-flex text-sm leading-5 font-semibold rounded-full bg-red-100 text-red-800">
-                    Cancelado
+                {% if trip.status == 'EM_ANDAMENTO' %}
+                <span id="ws-status" class="px-2 py-1 text-xs font-medium rounded bg-gray-200 text-gray-600">
+                    Conectando...
                 </span>
                 {% endif %}
             </div>
@@ -84,39 +134,131 @@
         </div>
     </div>
 
+    <!-- Cards de Estatísticas em Tempo Real -->
+    {% if trip.status == 'EM_ANDAMENTO' %}
+    <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+        <div class="stats-card bg-white rounded-lg shadow p-4">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-gray-600">Distância</p>
+                    <p id="stat-distance" class="text-2xl font-bold text-gray-900">{{ trip.total_distance_traveled|floatformat:1 }} km</p>
+                </div>
+                <div class="p-3 bg-blue-100 rounded-full">
+                    <svg class="h-6 w-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/>
+                    </svg>
+                </div>
+            </div>
+        </div>
+
+        <div class="stats-card bg-white rounded-lg shadow p-4">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-gray-600">Vel. Atual</p>
+                    <p id="stat-speed" class="text-2xl font-bold text-gray-900">0 km/h</p>
+                </div>
+                <div class="p-3 bg-green-100 rounded-full">
+                    <svg class="h-6 w-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                    </svg>
+                </div>
+            </div>
+        </div>
+
+        <div class="stats-card bg-white rounded-lg shadow p-4">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-gray-600">Vel. Máxima</p>
+                    <p id="stat-max-speed" class="text-2xl font-bold text-gray-900">{{ trip.max_speed_recorded|default:0|floatformat:0 }} km/h</p>
+                </div>
+                <div class="p-3 bg-yellow-100 rounded-full">
+                    <svg class="h-6 w-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                </div>
+            </div>
+        </div>
+
+        <div class="stats-card bg-white rounded-lg shadow p-4">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-gray-600">Desvios</p>
+                    <p id="stat-deviations" class="text-2xl font-bold text-gray-900">{{ trip.total_route_deviations }}</p>
+                </div>
+                <div id="deviation-indicator" class="p-3 {% if trip.has_active_deviation %}bg-red-100 pulse-active{% else %}bg-orange-100{% endif %} rounded-full">
+                    <svg class="h-6 w-6 {% if trip.has_active_deviation %}text-red-600{% else %}text-orange-600{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                    </svg>
+                </div>
+            </div>
+        </div>
+
+        <div class="stats-card bg-white rounded-lg shadow p-4">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-gray-600">Paradas</p>
+                    <p id="stat-stops" class="text-2xl font-bold text-gray-900">{{ trip.total_stops }}</p>
+                </div>
+                <div class="p-3 bg-purple-100 rounded-full">
+                    <svg class="h-6 w-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"/>
+                    </svg>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <!-- Grid Principal -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <!-- Coluna Esquerda - Mapa e Tracking -->
         <div class="lg:col-span-2 space-y-6">
             <!-- Mapa -->
             <div class="bg-white shadow rounded-lg overflow-hidden">
-                <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-                    <h2 class="text-lg font-semibold text-gray-900">Tracking em Tempo Real</h2>
-                    {% if trip.status == 'EM_ANDAMENTO' %}
-                    <button onclick="refreshPosition()" class="text-sm text-blue-600 hover:text-blue-800">
-                        <svg class="inline h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-                        </svg>
-                        Atualizar Posição
-                    </button>
-                    {% endif %}
+                <div class="px-6 py-4 border-b border-gray-200">
+                    <div class="flex justify-between items-center">
+                        <h2 class="text-lg font-semibold text-gray-900">Mapa em Tempo Real</h2>
+                        <div class="flex items-center space-x-4">
+                            {% if trip.status == 'EM_ANDAMENTO' %}
+                            <label class="flex items-center text-sm">
+                                <input type="checkbox" id="show-history" class="mr-2" checked>
+                                Mostrar histórico
+                            </label>
+                            <label class="flex items-center text-sm">
+                                <input type="checkbox" id="show-route" class="mr-2" checked>
+                                Rota planejada
+                            </label>
+                            {% endif %}
+                        </div>
+                    </div>
                 </div>
-                <div id="tracking-map" class="h-96"></div>
+                <div id="tracking-map" class="bg-gray-200">
+                    <div class="flex items-center justify-center h-full" style="height: 600px;">
+                        <div class="text-center">
+                            <svg class="animate-spin h-12 w-12 text-blue-600 mx-auto mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <p class="text-gray-600">Carregando mapa...</p>
+                        </div>
+                    </div>
+                </div>
                 
                 {% if current_position %}
                 <div class="px-6 py-4 bg-gray-50 border-t">
                     <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                         <div>
                             <span class="text-gray-600">Velocidade:</span>
-                            <span class="ml-2 font-semibold">{{ current_position.speed|default:"0" }} km/h</span>
+                            <span id="footer-speed" class="ml-2 font-semibold">{{ current_position.speed|default:"0" }} km/h</span>
                         </div>
                         <div>
                             <span class="text-gray-600">Última Atualização:</span>
-                            <span class="ml-2 font-semibold">{{ current_position.last_update|date:"H:i" }}</span>
+                            <span id="footer-last-update" class="ml-2 font-semibold">{{ current_position.last_update|date:"H:i" }}</span>
                         </div>
                         <div class="col-span-2">
                             <span class="text-gray-600">Endereço:</span>
-                            <span class="ml-2 font-semibold">{{ current_position.address|default:"Carregando..." }}</span>
+                            <span id="footer-address" class="ml-2 font-semibold">{{ current_position.address|default:"Carregando..." }}</span>
                         </div>
                     </div>
                 </div>
@@ -169,8 +311,26 @@
             </div>
         </div>
 
-        <!-- Coluna Direita - Informações -->
+        <!-- Coluna Direita - Alertas e Informações -->
         <div class="space-y-6">
+            <!-- Alertas Ativos -->
+            {% if trip.status == 'EM_ANDAMENTO' %}
+            <div class="bg-white shadow rounded-lg">
+                <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+                    <h2 class="text-lg font-semibold text-gray-900">Alertas</h2>
+                    <span id="alert-count" class="px-2 py-1 text-xs font-semibold bg-red-100 text-red-800 rounded-full">0</span>
+                </div>
+                <div id="alerts-container" class="max-h-96 overflow-y-auto">
+                    <div class="px-6 py-8 text-center text-gray-500">
+                        <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        <p class="mt-2">Nenhum alerta até o momento</p>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            
             <!-- Motorista -->
             <div class="bg-white shadow rounded-lg p-6">
                 <h3 class="text-lg font-semibold text-gray-900 mb-4">Motorista</h3>
@@ -285,120 +445,586 @@
 var map;
 var currentMarker;
 var routeLine;
+var routeShadow;
+var historyLine;
+var historyPoints = [];
+var alertMarkers = [];
+var activeAlerts = new Map(); // Mapa para gerenciar alertas ativos
 
-window.addEventListener('load', function() {
-    // Inicializar mapa
-    var currentLat = parseFloat('{{ current_lat|stringformat:"f" }}');
-    var currentLng = parseFloat('{{ current_lng|stringformat:"f" }}');
+// Inicializar mapa
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Inicializando mapa...');
     
-    map = L.map('tracking-map').setView([currentLat, currentLng], 12);
+    // Posição inicial
+    var initialLat = parseFloat("{{ trip.route.origin_latitude|default:'-23.5505' }}".replace(',', '.')) || -23.5505;
+    var initialLng = parseFloat("{{ trip.route.origin_longitude|default:'-46.6333' }}".replace(',', '.')) || -46.6333;
     
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-        maxZoom: 19
-    }).addTo(map);
+    console.log('Posição inicial:', initialLat, initialLng);
     
-    // Ícones customizados
-    var currentIcon = L.icon({
-        iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
-        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-        iconSize: [25, 41],
-        iconAnchor: [12, 41],
-        popupAnchor: [1, -34],
-        shadowSize: [41, 41]
-    });
-    
-    var originIcon = L.icon({
-        iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
-        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-        iconSize: [25, 41],
-        iconAnchor: [12, 41],
-        popupAnchor: [1, -34],
-        shadowSize: [41, 41]
-    });
-    
-    var destIcon = L.icon({
-        iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
-        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-        iconSize: [25, 41],
-        iconAnchor: [12, 41],
-        popupAnchor: [1, -34],
-        shadowSize: [41, 41]
-    });
-    
-    // Marcador de posição atual
-    currentMarker = L.marker([currentLat, currentLng], {icon: currentIcon}).addTo(map);
-    currentMarker.bindPopup('<strong>Posição Atual</strong><br>{{ trip.vehicle.plate }}');
-    
-    // Marcadores de origem e destino
-    var originLat = parseFloat('{{ origin_lat|stringformat:"f" }}');
-    var originLng = parseFloat('{{ origin_lng|stringformat:"f" }}');
-    var destLat = parseFloat('{{ dest_lat|stringformat:"f" }}');
-    var destLng = parseFloat('{{ dest_lng|stringformat:"f" }}');
-    
-    L.marker([originLat, originLng], {icon: originIcon}).addTo(map)
-        .bindPopup('<strong>Origem</strong><br>{{ trip.route.origin_name }}');
-    
-    L.marker([destLat, destLng], {icon: destIcon}).addTo(map)
-        .bindPopup('<strong>Destino</strong><br>{{ trip.route.destination_name }}');
-    
-    // Desenhar rota
-    {% if trip.route.route_geometry %}
-    try {
-        var routeGeometry = {{ trip.route.route_geometry|safe }};
-        if (routeGeometry && routeGeometry.coordinates) {
-            var routeCoords = routeGeometry.coordinates.map(function(coord) {
-                return [coord[1], coord[0]];
-            });
-            
-            routeLine = L.polyline(routeCoords, {
-                color: '#3b82f6',
-                weight: 4,
-                opacity: 0.6,
-                dashArray: '10, 5'
-            }).addTo(map);
-        }
-    } catch (e) {
-        console.error('Erro ao desenhar rota:', e);
+    if (typeof L === 'undefined') {
+        console.error('Leaflet não carregado!');
+        return;
     }
-    {% endif %}
-    
-    // Ajustar zoom
-    var bounds = L.latLngBounds([
-        [originLat, originLng],
-        [destLat, destLng],
-        [currentLat, currentLng]
-    ]);
-    map.fitBounds(bounds, { padding: [50, 50] });
     
     setTimeout(function() {
-        map.invalidateSize();
+        try {
+            var mapElement = document.getElementById('tracking-map');
+            if (!mapElement) {
+                console.error('Elemento do mapa não encontrado!');
+                return;
+            }
+            
+            // Limpar loading
+            mapElement.innerHTML = '';
+            mapElement.style.backgroundColor = '#e5e7eb';
+            mapElement.style.height = '600px';
+            mapElement.style.width = '100%';
+            mapElement.style.display = 'block';
+            
+            console.log('Container preparado');
+            
+            // Criar mapa
+            map = L.map('tracking-map', {
+                preferCanvas: false,
+                attributionControl: true,
+                zoomControl: true
+            }).setView([initialLat, initialLng], 13);
+            
+            console.log('Mapa inicializado');
+            
+            // Adicionar tiles
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap',
+                maxZoom: 19,
+                minZoom: 3
+            }).addTo(map);
+            
+            console.log('Tiles adicionados');
+            
+            // Ícones
+            var currentIcon = L.divIcon({
+                html: '<div style="background: #3b82f6; width: 20px; height: 20px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>',
+                iconSize: [20, 20],
+                iconAnchor: [10, 10],
+                className: ''
+            });
+            
+            var originIcon = L.icon({
+                iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
+                shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+                iconSize: [25, 41],
+                iconAnchor: [12, 41]
+            });
+            
+            var destIcon = L.icon({
+                iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+                shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+                iconSize: [25, 41],
+                iconAnchor: [12, 41]
+            });
+            
+            // Marcadores origem/destino
+            var originLat = parseFloat("{{ trip.route.origin_latitude }}".replace(',', '.'));
+            var originLng = parseFloat("{{ trip.route.origin_longitude }}".replace(',', '.'));
+            var destLat = parseFloat("{{ trip.route.destination_latitude }}".replace(',', '.'));
+            var destLng = parseFloat("{{ trip.route.destination_longitude }}".replace(',', '.'));
+            
+            if (!isNaN(originLat) && !isNaN(originLng)) {
+                L.marker([originLat, originLng], {icon: originIcon})
+                    .addTo(map)
+                    .bindPopup('<b>Origem</b><br>{{ trip.route.origin_name }}');
+            }
+            
+            if (!isNaN(destLat) && !isNaN(destLng)) {
+                L.marker([destLat, destLng], {icon: destIcon})
+                    .addTo(map)
+                    .bindPopup('<b>Destino</b><br>{{ trip.route.destination_name }}');
+            }
+            
+            // Desenhar rota planejada
+            {% if trip.route.route_geometry %}
+            try {
+                console.log('Desenhando rota planejada...');
+                var routeGeometry = {{ trip.route.route_geometry|safe }};
+                
+                if (routeGeometry && routeGeometry.coordinates) {
+                    var routeCoords = routeGeometry.coordinates.map(function(coord) {
+                        return [coord[1], coord[0]];
+                    });
+                    
+                    console.log('Total de pontos na rota:', routeCoords.length);
+                    
+                    // Sombra da rota
+                    routeShadow = L.polyline(routeCoords, {
+                        color: '#000000',
+                        weight: 7,
+                        opacity: 0.3,
+                        lineJoin: 'round',
+                        lineCap: 'round'
+                    }).addTo(map);
+                    
+                    // Rota principal
+                    routeLine = L.polyline(routeCoords, {
+                        color: '#ef4444',
+                        weight: 5,
+                        opacity: 0.8,
+                        lineJoin: 'round',
+                        lineCap: 'round'
+                    }).addTo(map);
+                    
+                    routeShadow.bringToBack();
+                    
+                    console.log('Rota desenhada com sucesso');
+                }
+            } catch (e) {
+                console.error('Erro ao desenhar rota:', e);
+            }
+            {% else %}
+            // Fallback: linha reta
+            if (!isNaN(originLat) && !isNaN(originLng) && !isNaN(destLat) && !isNaN(destLng)) {
+                console.log('Sem geometria, desenhando linha reta');
+                
+                routeLine = L.polyline([
+                    [originLat, originLng],
+                    [destLat, destLng]
+                ], {
+                    color: '#ef4444',
+                    weight: 4,
+                    opacity: 0.7,
+                    dashArray: '15, 10'
+                }).addTo(map);
+            }
+            {% endif %}
+            
+            // Marcador posição atual
+            currentMarker = L.marker([initialLat, initialLng], {icon: currentIcon}).addTo(map);
+            currentMarker.bindPopup('<b>{{ trip.vehicle.plate }}</b><br>Aguardando posição...').openPopup();
+            
+            // Ajustar tamanho
+            setTimeout(function() { map.invalidateSize(); }, 300);
+            setTimeout(function() { map.invalidateSize(); }, 500);
+            setTimeout(function() { map.invalidateSize(); }, 1000);
+            
+            // Carregar histórico e conectar WebSocket se viagem em andamento
+            {% if trip.status == 'EM_ANDAMENTO' %}
+            loadHistory();
+            connectWebSocket();
+            loadActiveAlerts();
+            {% endif %}
+            
+            // Controles de visibilidade
+            setupMapControls();
+            
+            console.log('Mapa pronto!');
+            
+        } catch (error) {
+            console.error('Erro ao criar mapa:', error);
+        }
     }, 100);
 });
 
-// Função para atualizar posição
-function refreshPosition() {
-    fetch('{% url "monitoring_refresh_position" trip.pk %}')
-        .then(response => response.json())
-        .then(data => {
-            if (data.success && data.position) {
-                var newLat = data.position.latitude;
-                var newLng = data.position.longitude;
-                
-                // Atualizar marcador
-                currentMarker.setLatLng([newLat, newLng]);
-                map.panTo([newLat, newLng]);
-                
-                // Atualizar informações
-                location.reload();
+// Configurar controles do mapa
+function setupMapControls() {
+    var showHistoryCheckbox = document.getElementById('show-history');
+    if (showHistoryCheckbox) {
+        showHistoryCheckbox.addEventListener('change', function(e) {
+            if (historyLine) {
+                if (e.target.checked) {
+                    map.addLayer(historyLine);
+                } else {
+                    map.removeLayer(historyLine);
+                }
             }
-        })
-        .catch(error => console.error('Erro ao atualizar posição:', error));
+        });
+    }
+    
+    var showRouteCheckbox = document.getElementById('show-route');
+    if (showRouteCheckbox) {
+        showRouteCheckbox.addEventListener('change', function(e) {
+            if (routeLine) {
+                if (e.target.checked) {
+                    map.addLayer(routeLine);
+                    if (routeShadow) routeShadow.bringToBack();
+                    routeLine.bringToFront();
+                } else {
+                    map.removeLayer(routeLine);
+                    if (routeShadow) map.removeLayer(routeShadow);
+                }
+            }
+        });
+    }
 }
 
-// Auto-refresh a cada 30 segundos se estiver em andamento
-{% if trip.status == 'EM_ANDAMENTO' %}
-setInterval(refreshPosition, 30000);
-{% endif %}
+// Carregar histórico de posições
+function loadHistory() {
+    if (!map) return;
+    
+    console.log('Carregando histórico...');
+    fetch('/api/monitoring/{{ trip.id }}/position_history/')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            console.log('Dados do histórico:', data);
+            
+            if (data.success && data.positions && data.positions.length > 0) {
+                console.log('Posições encontradas:', data.positions.length);
+                
+                historyPoints = data.positions.map(function(p) {
+                    return [parseFloat(p.latitude), parseFloat(p.longitude)];
+                });
+                
+                if (historyLine) {
+                    map.removeLayer(historyLine);
+                }
+                
+                historyLine = L.polyline(historyPoints, {
+                    color: '#10b981',
+                    weight: 4,
+                    opacity: 0.8
+                }).addTo(map);
+                
+                console.log('Linha de histórico desenhada');
+                
+                // Marcadores em pontos do histórico
+                var markerInterval = Math.max(1, Math.floor(data.positions.length / 20));
+                
+                data.positions.forEach(function(position, index) {
+                    if (index % markerInterval === 0 || index === 0 || index === data.positions.length - 1) {
+                        var timestamp = position.timestamp ? new Date(position.timestamp).toLocaleString('pt-BR') : 'N/A';
+                        var speed = position.speed || 0;
+                        var address = position.address || 'Localização não disponível';
+                        
+                        var historyMarker = L.circleMarker([parseFloat(position.latitude), parseFloat(position.longitude)], {
+                            radius: 5,
+                            fillColor: '#10b981',
+                            color: '#ffffff',
+                            weight: 2,
+                            opacity: 1,
+                            fillOpacity: 0.8
+                        }).addTo(map);
+                        
+                        historyMarker.bindPopup(
+                            '<div class="text-sm">' +
+                            '<strong>📍 Posição #' + (index + 1) + '</strong><br>' +
+                            '<strong>🕐 Horário:</strong> ' + timestamp + '<br>' +
+                            '<strong>🚗 Velocidade:</strong> ' + speed.toFixed(1) + ' km/h<br>' +
+                            '<strong>📌 Local:</strong><br>' +
+                            '<span class="text-xs">' + address + '</span>' +
+                            '</div>'
+                        );
+                    }
+                });
+                
+                // Garantir que a rota fique visível
+                setTimeout(function() {
+                    if (routeLine && map.hasLayer(routeLine)) {
+                        if (routeShadow) routeShadow.bringToBack();
+                        routeLine.bringToFront();
+                    }
+                }, 500);
+                
+                if (historyPoints.length > 1) {
+                    var bounds = historyLine.getBounds();
+                    map.fitBounds(bounds, {padding: [50, 50]});
+                }
+            } else {
+                console.log('Nenhuma posição no histórico');
+            }
+        })
+        .catch(function(e) {
+            console.error('Erro ao carregar histórico:', e);
+        });
+}
+
+// Carregar alertas ativos
+function loadActiveAlerts() {
+    console.log('Carregando alertas ativos...');
+    fetch('/api/monitoring/{{ trip.id }}/active_alerts/')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.success && data.alerts && data.alerts.length > 0) {
+                console.log('Alertas ativos encontrados:', data.alerts.length);
+                data.alerts.forEach(function(alert) {
+                    addAlert(alert, false); // false = não animar (já existente)
+                });
+            }
+        })
+        .catch(function(e) {
+            console.error('Erro ao carregar alertas:', e);
+        });
+}
+
+// WebSocket
+var ws;
+function connectWebSocket() {
+    var protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    var wsUrl = protocol + '//' + window.location.host + '/ws/monitoring/{{ trip.id }}/';
+    
+    console.log('Conectando WebSocket:', wsUrl);
+    
+    ws = new WebSocket(wsUrl);
+    
+    ws.onopen = function() {
+        console.log('WebSocket conectado');
+        var statusEl = document.getElementById('ws-status');
+        if (statusEl) {
+            statusEl.textContent = 'Conectado';
+            statusEl.className = 'px-2 py-1 text-xs font-medium rounded bg-green-100 text-green-800';
+        }
+    };
+    
+    ws.onmessage = function(event) {
+        var message = JSON.parse(event.data);
+        
+        if (message.type === 'position_update') {
+            updatePosition(message.data);
+        } else if (message.type === 'trip_alert') {
+            console.log('⚠️ ALERTA:', message.data.alert.message);
+            addAlert(message.data.alert, true); // true = animar (novo alerta)
+            // Atualizar stats se fornecidos
+            if (message.data.current_stats) {
+                updateStats(message.data.current_stats);
+            }
+        } else if (message.type === 'device_sync') {
+            // Device sync - silencioso
+        }
+    };
+    
+    ws.onerror = function(error) {
+        console.error('Erro WebSocket:', error);
+        var statusEl = document.getElementById('ws-status');
+        if (statusEl) {
+            statusEl.textContent = 'Erro';
+            statusEl.className = 'px-2 py-1 text-xs font-medium rounded bg-red-100 text-red-800';
+        }
+    };
+    
+    ws.onclose = function() {
+        console.log('WebSocket desconectado, reconectando em 3s...');
+        var statusEl = document.getElementById('ws-status');
+        if (statusEl) {
+            statusEl.textContent = 'Desconectado';
+            statusEl.className = 'px-2 py-1 text-xs font-medium rounded bg-yellow-100 text-yellow-800';
+        }
+        setTimeout(connectWebSocket, 3000);
+    };
+}
+
+// Atualizar posição no mapa
+function updatePosition(data) {
+    var lat = data.latitude;
+    var lng = data.longitude;
+    var speed = data.speed || 0;
+    var address = data.address || 'Sem endereço';
+    
+    // Atualizar marcador
+    if (currentMarker) {
+        currentMarker.setLatLng([lat, lng]);
+        currentMarker.getPopup().setContent('<b>{{ trip.vehicle.plate }}</b><br>Velocidade: ' + speed + ' km/h<br>' + address);
+    }
+    
+    // Adicionar ao histórico
+    historyPoints.push([lat, lng]);
+    
+    if (historyLine) {
+        historyLine.setLatLngs(historyPoints);
+    } else if (map) {
+        historyLine = L.polyline(historyPoints, {
+            color: '#10b981',
+            weight: 4,
+            opacity: 0.8
+        }).addTo(map);
+    }
+    
+    // Atualizar velocidade no card
+    var speedEl = document.getElementById('stat-speed');
+    if (speedEl) {
+        speedEl.textContent = speed.toFixed(0) + ' km/h';
+    }
+    
+    // Atualizar rodapé
+    var footerSpeed = document.getElementById('footer-speed');
+    if (footerSpeed) {
+        footerSpeed.textContent = speed.toFixed(0) + ' km/h';
+    }
+    
+    var footerAddress = document.getElementById('footer-address');
+    if (footerAddress) {
+        footerAddress.textContent = address;
+    }
+    
+    var footerLastUpdate = document.getElementById('footer-last-update');
+    if (footerLastUpdate) {
+        var now = new Date();
+        var hours = now.getHours().toString().padStart(2, '0');
+        var minutes = now.getMinutes().toString().padStart(2, '0');
+        footerLastUpdate.textContent = hours + ':' + minutes;
+    }
+    
+    // Centralizar mapa
+    if (map) {
+        map.panTo([lat, lng], {animate: true, duration: 1});
+    }
+}
+
+// Atualizar estatísticas
+function updateStats(stats) {
+    if (stats.total_deviations !== undefined) {
+        var deviationsEl = document.getElementById('stat-deviations');
+        if (deviationsEl) {
+            deviationsEl.textContent = stats.total_deviations;
+        }
+    }
+    
+    if (stats.has_active_deviation !== undefined) {
+        var indicator = document.getElementById('deviation-indicator');
+        if (indicator) {
+            if (stats.has_active_deviation) {
+                indicator.className = 'p-3 bg-red-100 pulse-active rounded-full';
+                indicator.querySelector('svg').className = 'h-6 w-6 text-red-600';
+            } else {
+                indicator.className = 'p-3 bg-orange-100 rounded-full';
+                indicator.querySelector('svg').className = 'h-6 w-6 text-orange-600';
+            }
+        }
+    }
+    
+    if (stats.max_speed !== undefined) {
+        var maxSpeedEl = document.getElementById('stat-max-speed');
+        if (maxSpeedEl) {
+            maxSpeedEl.textContent = stats.max_speed.toFixed(0) + ' km/h';
+        }
+    }
+}
+
+// Adicionar alerta à lista
+function addAlert(alert, animate) {
+    var container = document.getElementById('alerts-container');
+    if (!container) return;
+    
+    // Criar chave única do alerta
+    var alertKey = alert.type + '_' + alert.timestamp;
+    
+    // Verificar se alerta já existe
+    if (activeAlerts.has(alertKey)) {
+        return;
+    }
+    
+    // Adicionar ao mapa de alertas ativos
+    activeAlerts.set(alertKey, alert);
+    
+    // Limpar mensagem inicial
+    if (container.children[0] && container.children[0].classList.contains('text-center')) {
+        container.innerHTML = '';
+    }
+    
+    var severityBg = {
+        'info': 'bg-blue-50',
+        'warning': 'bg-yellow-50',
+        'critical': 'bg-red-50',
+        'success': 'bg-green-50'
+    }[alert.severity] || 'bg-gray-50';
+    
+    var severityClass = 'alert-' + alert.severity;
+    
+    var timestamp = alert.timestamp ? new Date(alert.timestamp).toLocaleString('pt-BR') : 'Agora';
+    
+    var alertHtml = '<div class="alert-item ' + severityClass + ' ' + severityBg + ' px-4 py-3 mb-2" data-alert-key="' + alertKey + '">' +
+        '<div class="flex items-start justify-between">' +
+        '<div class="flex-1">' +
+        '<p class="text-sm font-medium text-gray-900">' + alert.message + '</p>' +
+        '<p class="text-xs text-gray-500 mt-1">' + timestamp + '</p>' +
+        '</div>' +
+        '<button onclick="dismissAlert(\'' + alertKey + '\')" class="ml-2 text-gray-400 hover:text-gray-600">' +
+        '<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">' +
+        '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>' +
+        '</svg>' +
+        '</button>' +
+        '</div>' +
+        '</div>';
+    
+    container.insertAdjacentHTML('afterbegin', alertHtml);
+    
+    // Atualizar contador
+    updateAlertCount();
+    
+    // Marcador no mapa
+    if (alert.position && map) {
+        var color = alert.severity === 'warning' ? '#f59e0b' : (alert.severity === 'critical' ? '#ef4444' : '#3b82f6');
+        var fillColor = alert.severity === 'warning' ? '#fef3c7' : (alert.severity === 'critical' ? '#fee2e2' : '#dbeafe');
+        
+        var alertMarker = L.circleMarker([alert.position.latitude, alert.position.longitude], {
+            color: color,
+            fillColor: fillColor,
+            fillOpacity: 0.7,
+            radius: 8
+        }).addTo(map);
+        
+        alertMarker.bindPopup('<b>' + alert.type + '</b><br>' + alert.message);
+        alertMarkers.push({ key: alertKey, marker: alertMarker });
+    }
+    
+    // Notificação do navegador
+    if (animate && 'Notification' in window && Notification.permission === 'granted') {
+        new Notification('Alerta - {{ trip.identifier }}', {
+            body: alert.message,
+            icon: '/static/img/icon-alert.png' // você pode adicionar um ícone
+        });
+    }
+}
+
+// Atualizar contador de alertas
+function updateAlertCount() {
+    var count = activeAlerts.size;
+    var countEl = document.getElementById('alert-count');
+    if (countEl) {
+        countEl.textContent = count;
+        if (count > 0) {
+            countEl.className = 'px-2 py-1 text-xs font-semibold bg-red-100 text-red-800 rounded-full';
+        } else {
+            countEl.className = 'px-2 py-1 text-xs font-semibold bg-green-100 text-green-800 rounded-full';
+        }
+    }
+}
+
+// Descartar alerta
+function dismissAlert(alertKey) {
+    // Remover do mapa de alertas ativos
+    activeAlerts.delete(alertKey);
+    
+    // Remover do DOM
+    var alertEl = document.querySelector('[data-alert-key="' + alertKey + '"]');
+    if (alertEl) {
+        alertEl.style.opacity = '0';
+        alertEl.style.transform = 'translateX(20px)';
+        setTimeout(function() {
+            alertEl.remove();
+            
+            // Se não há mais alertas, mostrar mensagem
+            var container = document.getElementById('alerts-container');
+            if (container && container.children.length === 0) {
+                container.innerHTML = '<div class="px-6 py-8 text-center text-gray-500">' +
+                    '<svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">' +
+                    '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>' +
+                    '</svg>' +
+                    '<p class="mt-2">Nenhum alerta ativo</p>' +
+                    '</div>';
+            }
+            
+            updateAlertCount();
+        }, 300);
+    }
+    
+    // Remover marcador do mapa
+    var markerData = alertMarkers.find(function(m) { return m.key === alertKey; });
+    if (markerData && map) {
+        map.removeLayer(markerData.marker);
+        alertMarkers = alertMarkers.filter(function(m) { return m.key !== alertKey; });
+    }
+}
+
+// Solicitar permissão para notificações
+if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission();
+}
 </script>
 {% endblock %}

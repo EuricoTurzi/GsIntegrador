@@ -34,7 +34,6 @@ staticfiles/
 # Environment
 .env
 .venv
-.env.example
 .env.docker
 
 # IDE
@@ -61,3 +60,26 @@ celerybeat.pid
 # Database
 *.db
 *.sqlite3
+
+# Scripts de teste/debug temporários
+activate_trip.py
+check_*.py
+test_deviation*.py
+test_user_views.py
+
+# Documentação temporária/resumos de implementação
+FORMATTER_SETUP.md
+RESUMO_IMPLEMENTACAO.md
+SISTEMA_*.md
+TEMPLATES_FIXED_SUMMARY.md
+TESTE_*.md
+CHECKLIST.md
+
+# Backups de templates
+*.backup
+*.bak
+
+# Comandos de gerenciamento temporários/debug
+apps/monitoring/management/commands/test_*.py
+apps/monitoring/management/commands/force_*.py
+apps/monitoring/management/commands/check_*.py

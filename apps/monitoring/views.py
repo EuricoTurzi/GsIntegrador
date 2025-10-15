@@ -343,3 +343,76 @@ class MonitoringSystemViewSet(viewsets.ModelViewSet):
             'identifier': sm.identifier,
             'geojson': geojson
         }, status=status.HTTP_200_OK)
+    
+    @action(detail=True, methods=['get'])
+    def active_alerts(self, request, pk=None):
+        """
+        Retorna os alertas ativos da viagem.
+        
+        Alertas são considerados ativos se:
+        - Foram gerados e ainda não foram resolvidos
+        - Para desvios: tem has_active_deviation = True
+        
+        GET /api/monitoring/{id}/active_alerts/
+        """
+        sm = self.get_object()
+        
+        active_alerts = []
+        
+        # Verificar se há desvio ativo
+        if sm.has_active_deviation:
+            # Buscar último alerta de desvio
+            if sm.alerts_data:
+                for alert in reversed(sm.alerts_data):
+                    if alert.get('type') == 'route_deviation' and alert.get('severity') == 'warning':
+                        active_alerts.append(alert)
+                        break
+        
+        # Buscar outros alertas recentes (últimas 24 horas)
+        from django.utils import timezone
+        from datetime import timedelta
+        
+        cutoff_time = timezone.now() - timedelta(hours=24)
+        
+        if sm.alerts_data:
+            for alert in sm.alerts_data:
+                # Pular se já adicionado
+                if alert in active_alerts:
+                    continue
+                
+                # Verificar timestamp
+                alert_time_str = alert.get('timestamp')
+                if alert_time_str:
+                    try:
+                        from dateutil import parser
+                        alert_time = parser.isoparse(alert_time_str)
+                        if alert_time > cutoff_time:
+                            active_alerts.append(alert)
+                    except:
+                        pass
+        
+        return Response({
+            'success': True,
+            'monitoring_id': sm.id,
+            'identifier': sm.identifier,
+            'total_alerts': len(active_alerts),
+            'alerts': active_alerts
+        }, status=status.HTTP_200_OK)
+    
+    @action(detail=True, methods=['post'])
+    def analyze_position(self, request, pk=None):
+        """
+        Força análise da posição atual do veículo e gera alertas se necessário.
+        
+        POST /api/monitoring/{id}/analyze_position/
+        """
+        sm = self.get_object()
+        
+        analysis = sm.analyze_current_position()
+        
+        return Response({
+            'success': analysis.get('success', False),
+            'monitoring_id': sm.id,
+            'identifier': sm.identifier,
+            'analysis': analysis
+        }, status=status.HTTP_200_OK if analysis.get('success') else status.HTTP_400_BAD_REQUEST)

@@ -92,6 +92,13 @@ class TripTrackingConsumer(AsyncWebsocketConsumer):
             'data': event['data']
         }))
     
+    async def trip_alert(self, event):
+        """🆕 Receber alertas da viagem (desvio de rota, paradas, etc)"""
+        await self.send(text_data=json.dumps({
+            'type': 'trip_alert',
+            'data': event['data']
+        }))
+    
     @database_sync_to_async
     def check_trip_permission(self, user, trip_id):
         """Verifica se usuário tem permissão para ver a viagem"""
@@ -220,6 +227,13 @@ class FleetTrackingConsumer(AsyncWebsocketConsumer):
         """Receber notificação de sincronização do dispositivo"""
         await self.send(text_data=json.dumps({
             'type': 'device_sync',
+            'data': event['data']
+        }))
+    
+    async def trip_alert(self, event):
+        """🆕 Receber alertas das viagens (desvio de rota, paradas, etc)"""
+        await self.send(text_data=json.dumps({
+            'type': 'trip_alert',
             'data': event['data']
         }))
     

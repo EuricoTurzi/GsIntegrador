@@ -14,6 +14,8 @@ from .views import (
     profile_view,
     change_password_view,
     user_list_view,
+    user_detail_view,
+    user_edit_view,
 )
 
 app_name = 'authentication'
@@ -26,8 +28,8 @@ urlpatterns = [
     path('change-password/', change_password_view, name='change-password'),
     path('logout/', DjangoLogoutView.as_view(), name='logout'),
     path('users/', user_list_view, name='user-list'),
-    path('users/<int:pk>/', profile_view, name='user-detail'),  # Temporário, usa profile view
-    path('users/<int:pk>/edit/', profile_view, name='user-edit'),  # Temporário, usa profile view
+    path('users/<int:pk>/', user_detail_view, name='user-detail'),
+    path('users/<int:pk>/edit/', user_edit_view, name='user-edit'),
     
     # API Autenticação
     path('api/register/', RegisterView.as_view(), name='api-register'),
