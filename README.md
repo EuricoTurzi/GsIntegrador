@@ -1,39 +1,66 @@
-# Integrador - Sistema de Rastreamento e Monitoramento
+# 🚛 Integrador - Sistema de Rastreamento e Monitoramento
 
-Sistema integrador de rastreamento veicular com foco em transportadoras, desenvolvido em Django.
+Sistema integrador de rastreamento veicular em tempo real com foco em transportadoras, desenvolvido em Django.
 
-## 🚀 Funcionalidades
+## ✨ Funcionalidades Principais
 
-### Fase 1 - MVP
+### 🔐 Autenticação e Gestão de Usuários
 
-- ✅ Gerenciamento de usuários (GR e Transportadora)
+- ✅ Sistema completo de login/registro
+- ✅ Tipos de usuário: GR (Gerente de Risco) e Transportadora
+- ✅ Gestão de perfis e permissões
+
+### 📊 Gerenciamento
+
 - ✅ Cadastro de motoristas
 - ✅ Cadastro de veículos
-- ✅ Integração com API Suntech
-- ✅ Gestão de rastreadores
-- ✅ Criação de rotas (OpenStreetMap)
-- ✅ Sistema de Monitoramento (SM)
+- ✅ Gestão de rastreadores (devices)
+- ✅ Criação e visualização de rotas
 
-## 🛠️ Stack Tecnológica
+### 🎯 Monitoramento em Tempo Real
 
-- **Python** 3.11+
-- **Django** 5.0
-- **Django REST Framework** 3.14
-- **PostgreSQL** 15
-- **Redis** 7
-- **Celery** 5.3
-- **Docker** & Docker Compose
+- ✅ **WebSocket** para atualizações em tempo real
+- ✅ **Detecção de desvios de rota** (alertas contínuos a cada 2 minutos)
+- ✅ **Detecção de paradas prolongadas** (alertas após 5 minutos)
+- ✅ Mapas interativos com Leaflet.js
+- ✅ Histórico de posições e alertas
+- ✅ Dashboard com visão geral da frota
 
-## 📋 Pré-requisitos
+### 🔗 Integrações
+
+- ✅ **Suntech API** - Sincronização de dados de rastreadores
+- ✅ **OpenRouteService** - Cálculo de rotas otimizadas
+
+## 🛠️ Tecnologias
+
+**Backend:**
 
 - Python 3.11+
-- PostgreSQL 15+
-- Redis 7+
-- Docker & Docker Compose (opcional)
+- Django 4.2.7
+- Django REST Framework 3.14
+- Django Channels (WebSocket)
+- Celery 5.3 (tarefas assíncronas)
 
-## 🔧 Instalação
+**Frontend:**
 
-### Opção 1: Com Docker (Recomendado)
+- Tailwind CSS
+- Alpine.js
+- Leaflet.js (mapas)
+
+**Infraestrutura:**
+
+- PostgreSQL 15
+- Redis 7
+- Docker & Docker Compose
+
+## 🚀 Quick Start
+
+### Pré-requisitos
+
+- Docker e Docker Compose instalados
+- Git configurado
+
+### Instalação (Docker - Recomendado)
 
 ```bash
 # Clone o repositório
@@ -58,110 +85,74 @@ docker-compose exec web python manage.py createsuperuser
 # Acesse: http://localhost:8000
 ```
 
-### Opção 2: Instalação Local
-
-```bash
-# Clone o repositório
-git clone <repository-url>
-cd Integrador
-
-# Crie um ambiente virtual
-python -m venv venv
-
-# Ative o ambiente virtual
-# Windows:
-venv\Scripts\activate
-# Linux/Mac:
-source venv/bin/activate
-
-# Instale as dependências
-pip install -r requirements.txt
-
-# Copie o arquivo de ambiente
-cp .env.example .env
-
-# Edite o .env com suas configurações
-nano .env
-
-# Execute as migrations
-python manage.py migrate
-
-# Crie um superusuário
-python manage.py createsuperuser
-
-# Inicie o servidor
-python manage.py runserver
-
-# Em outro terminal, inicie o Celery
-celery -A integrador worker --loglevel=info
-
-# Acesse: http://localhost:8000
-```
+> 📖 **Para instruções detalhadas de setup**, veja [docs/SETUP_DEV.md](docs/SETUP_DEV.md)
 
 ## 📁 Estrutura do Projeto
 
 ```
-Integrador/
-├── integrador/              # Configurações principais do Django
-│   ├── settings/
-│   │   ├── base.py         # Configurações base
-│   │   ├── development.py  # Configurações de desenvolvimento
-│   │   └── production.py   # Configurações de produção
-│   ├── urls.py
-│   ├── wsgi.py
-│   └── celery.py
-├── apps/
-│   ├── authentication/     # Gerenciamento de usuários e autenticação
-│   ├── drivers/           # Gestão de motoristas
-│   ├── vehicles/          # Gestão de veículos
-│   ├── devices/           # Gestão de rastreadores
-│   ├── integrations/      # Integrações (Suntech API)
-│   ├── routes/            # Gestão de rotas
-│   └── monitoring/        # Sistema de Monitoramento (SM)
-├── requirements.txt
-├── docker-compose.yml
-├── Dockerfile
-├── .env.example
-├── .gitignore
-└── README.md
+integrador/
+├── apps/                    # Aplicações Django
+│   ├── authentication/      # Sistema de autenticação
+│   ├── devices/            # Gerenciamento de rastreadores
+│   ├── drivers/            # Cadastro de motoristas
+│   ├── integrations/       # Integrações externas (Suntech, ORS)
+│   ├── monitoring/         # Sistema de monitoramento em tempo real
+│   ├── routes/             # Gerenciamento de rotas
+│   └── vehicles/           # Cadastro de veículos
+├── integrador/             # Configurações Django
+├── templates/              # Templates HTML
+├── static/                 # Arquivos estáticos
+├── docs/                   # 📚 Documentação completa
+├── docker-compose.yml      # Orquestração de containers
+└── requirements.txt        # Dependências Python
 ```
 
-## 🔑 Variáveis de Ambiente
+## 📚 Documentação
 
-Consulte o arquivo `.env.example` para todas as variáveis necessárias.
+### Documentação Completa
 
-### Principais variáveis:
+- 📘 [**Guia de Setup para Desenvolvedores**](docs/SETUP_DEV.md) - Como configurar o ambiente de desenvolvimento
+- 📗 [**Especificação do Projeto**](docs/PROJECT_SPEC.md) - Requisitos e arquitetura
+- 📙 [**Estrutura do Projeto**](docs/STRUCTURE.md) - Organização do código
+- 📕 [**API de Autenticação**](docs/API_AUTH.md) - Endpoints de auth e JWT
+- 📔 [**API Suntech**](docs/SUNTECH_API.md) - Integração com Suntech
+- 🐳 [**Guia Docker**](docs/GUIA_DOCKER.md) - Usando Docker e Docker Compose
 
-- `SECRET_KEY`: Chave secreta do Django
-- `DEBUG`: Modo debug (True/False)
-- `DB_*`: Configurações do PostgreSQL
-- `REDIS_URL`: URL do Redis
-- `SUNTECH_API_*`: Credenciais da API Suntech
+### Acessos Rápidos
 
-## 📚 Documentação da API
+Após iniciar o servidor:
 
-Após iniciar o servidor, acesse:
+- 🏠 **Frontend**: http://localhost:8000
+- 🔧 **Admin Django**: http://localhost:8000/admin
+- 🚀 **API Root**: http://localhost:8000/api/
 
-- Admin: http://localhost:8000/admin
-- API Root: http://localhost:8000/api/
-- Swagger UI: http://localhost:8000/api/docs/
-- ReDoc: http://localhost:8000/api/redoc/
-
-## 🧪 Testes
+## 🛠️ Comandos Úteis
 
 ```bash
-# Executar todos os testes
-python manage.py test
+# Ver logs em tempo real
+docker-compose logs -f web
 
-# Com coverage
-coverage run --source='.' manage.py test
-coverage report
+# Reiniciar um serviço
+docker-compose restart celery
+
+# Acessar shell Django
+docker-compose exec web python manage.py shell
+
+# Executar migrations
+docker-compose exec web python manage.py migrate
 ```
+
+## 🤝 Contribuindo
+
+1. Crie uma branch para sua feature (`git checkout -b feature/nova-feature`)
+2. Commit suas mudanças (`git commit -m 'feat: adiciona nova feature'`)
+3. Push para a branch (`git push origin feature/nova-feature`)
+4. Abra um Pull Request
 
 ## 📝 Licença
 
 Proprietary - Todos os direitos reservados
 
-## 👥 Contato
+---
 
-Para mais informações, entre em contato com a equipe de desenvolvimento.
+**Desenvolvido com ❤️ pela equipe de desenvolvimento**
