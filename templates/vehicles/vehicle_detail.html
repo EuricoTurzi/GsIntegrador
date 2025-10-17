@@ -1,9 +1,5 @@
-{% extends 'base.html' %} 
-{% block title %}
-{{ vehicle.placa }} - Veículos - GR System
-{% endblock %} 
-
-{% block page_title %}Detalhes do Veículo{% endblock %} 
+{% extends 'base.html' %} {% block title %} {{ vehicle.placa }} - Veículos - GR
+System {% endblock %} {% block page_title %}Detalhes do Veículo{% endblock %}
 {%block breadcrumbs %}
 <nav class="flex mb-4" aria-label="Breadcrumb">
   <ol class="inline-flex items-center space-x-1 md:space-x-3">
@@ -33,9 +29,7 @@
     </li>
   </ol>
 </nav>
-{% endblock %} 
-
-{% block content %}
+{% endblock %} {% block content %}
 <div class="space-y-6">
   <!-- Header with Actions -->
   <div class="bg-gray-800 rounded-lg shadow-lg p-6">
@@ -76,9 +70,7 @@
             >
               <i class="fas fa-ban mr-1"></i> Inativo
             </span>
-            {% endif %}
-            
-            {% if vehicle.device %}
+            {% endif %} {% if vehicle.device %}
             <span
               class="px-3 py-1 inline-flex text-sm font-semibold rounded-full bg-blue-100 text-blue-800"
             >
@@ -225,20 +217,22 @@
           </div>
           <div>
             <label class="text-sm text-gray-400">IMEI</label>
-            <p class="text-white font-medium">{{ vehicle.device.imei|default:"Não informado" }}</p>
+            <p class="text-white font-medium">
+              {{ vehicle.device.imei|default:"Não informado" }}
+            </p>
           </div>
           <div>
             <label class="text-sm text-gray-400">ID Suntech Device</label>
-            <p class="text-white font-medium">{{ vehicle.device.suntech_device_id|default:"Não vinculado" }}</p>
+            <p class="text-white font-medium">
+              {{ vehicle.device.suntech_device_id|default:"Não vinculado" }}
+            </p>
           </div>
           <div>
             <label class="text-sm text-gray-400">Última Atualização</label>
             <p class="text-white font-medium">
-              {% if vehicle.device.last_position_date %}
-                {{ vehicle.device.last_position_date|date:"d/m/Y H:i" }}
-              {% else %}
-                Nunca
-              {% endif %}
+              {% if vehicle.device.last_position_date %} {{
+              vehicle.device.last_position_date|date:"d/m/Y H:i" }} {% else %}
+              Nunca {% endif %}
             </p>
           </div>
           <div class="md:col-span-2">
