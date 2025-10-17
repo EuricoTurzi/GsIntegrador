@@ -1115,6 +1115,20 @@ class VehiclePositionHistory(models.Model):
         help_text='Dados adicionais da API (ignição, bateria, etc.)'
     )
     
+    # 🆕 Flag para posições de teste/simulação
+    is_test_position = models.BooleanField(
+        'Posição de Teste',
+        default=False,
+        help_text='Indica se esta é uma posição injetada para teste/simulação'
+    )
+    
+    test_metadata = models.JSONField(
+        'Metadados de Teste',
+        blank=True,
+        null=True,
+        help_text='Informações sobre o teste (modo de simulação, origem, etc.)'
+    )
+    
     class Meta:
         verbose_name = 'Histórico de Posição'
         verbose_name_plural = 'Histórico de Posições'

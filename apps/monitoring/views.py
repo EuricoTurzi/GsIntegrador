@@ -416,3 +416,116 @@ class MonitoringSystemViewSet(viewsets.ModelViewSet):
             'identifier': sm.identifier,
             'analysis': analysis
         }, status=status.HTTP_200_OK if analysis.get('success') else status.HTTP_400_BAD_REQUEST)
+    
+    @action(detail=True, methods=['post'])
+    def inject_test_position(self, request, pk=None):
+        """
+        🧪 Injeta uma posição de teste no dispositivo da viagem.
+        
+        Útil para simular comportamentos e testar o sistema de monitoramento.
+        
+        POST /api/monitoring/{id}/inject_test_position/
+        
+        Body:
+        {
+            "latitude": -23.550520,
+            "longitude": -46.633308,
+            "speed": 60.0,
+            "address": "Teste - São Paulo",
+            "use_old_timestamp": false,  // Se true, usa timestamp de 10 min atrás
+            "timestamp_offset_minutes": 0  // Offset em minutos (negativo = passado)
+        }
+        
+        Resposta:
+        {
+            "success": true,
+            "monitoring_id": 1,
+            "identifier": "SM-2025-0012",
+            "injected_position": {
+                "latitude": -23.550520,
+                "longitude": -46.633308,
+                "speed": 60.0,
+                "timestamp": "2025-10-16T10:30:00Z",
+                "was_old_position": false
+            },
+            "device_accepted": true,
+            "validation_passed": true
+        }
+        """
+        from django.utils import timezone
+        from decimal import Decimal
+        
+        sm = self.get_object()
+        
+        # Verificar se tem dispositivo
+        if not hasattr(sm.vehicle, 'device'):
+            return Response({
+                'success': False,
+                'error': 'Veículo não possui dispositivo rastreador'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        device = sm.vehicle.device
+        
+        # Validar dados do request
+        latitude = request.data.get('latitude')
+        longitude = request.data.get('longitude')
+        speed = request.data.get('speed', 0)
+        address = request.data.get('address', 'Posição de Teste')
+        use_old_timestamp = request.data.get('use_old_timestamp', False)
+        timestamp_offset_minutes = request.data.get('timestamp_offset_minutes', 0)
+        
+        if latitude is None or longitude is None:
+            return Response({
+                'success': False,
+                'error': 'latitude e longitude são obrigatórios'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Calcular timestamp
+        if use_old_timestamp:
+            timestamp = timezone.now() - timezone.timedelta(minutes=10)
+            is_old = True
+        elif timestamp_offset_minutes != 0:
+            timestamp = timezone.now() + timezone.timedelta(minutes=timestamp_offset_minutes)
+            is_old = timestamp_offset_minutes < 0
+        else:
+            timestamp = timezone.now()
+            is_old = False
+        
+        # Salvar posição antiga do device para comparação
+        old_device_timestamp = device.last_system_date
+        
+        # Injetar posição
+        device.last_latitude = Decimal(str(latitude))
+        device.last_longitude = Decimal(str(longitude))
+        device.last_speed = Decimal(str(speed))
+        device.last_system_date = timestamp
+        device.last_address = f"[TESTE] {address}"
+        device.save()
+        
+        # Recarregar device para ver se foi aceito
+        device.refresh_from_db()
+        
+        # Verificar se a posição foi aceita (timestamp mudou)
+        device_accepted = device.last_system_date == timestamp
+        validation_passed = not is_old or device.last_system_date != old_device_timestamp
+        
+        return Response({
+            'success': True,
+            'monitoring_id': sm.id,
+            'identifier': sm.identifier,
+            'injected_position': {
+                'latitude': float(latitude),
+                'longitude': float(longitude),
+                'speed': float(speed),
+                'timestamp': timestamp.isoformat(),
+                'was_old_position': is_old,
+                'timestamp_offset_minutes': timestamp_offset_minutes
+            },
+            'device_accepted': device_accepted,
+            'validation_passed': validation_passed,
+            'device_current_timestamp': device.last_system_date.isoformat() if device.last_system_date else None,
+            'message': (
+                '✅ Posição injetada com sucesso' if device_accepted
+                else '⚠️ Posição rejeitada pelo sistema de validação'
+            )
+        }, status=status.HTTP_200_OK)

@@ -183,22 +183,28 @@ class Device(models.Model):
         """
         Sincroniza os dados do dispositivo com a API Suntech.
         
+        🛡️ Validação de timestamp agora é feita automaticamente no save()
+        
         Returns:
             bool: True se sincronização foi bem-sucedida
         """
         try:
+            import logging
+            logger = logging.getLogger(__name__)
+            
             # Buscar dados do dispositivo na API Suntech
             # Force fresh fetch from Suntech API (bypass cache) to avoid stale positions
             vehicle_data = suntech_client.get_vehicle_by_device_id(self.suntech_device_id, use_cache=False)
             
             if not vehicle_data:
+                logger.warning(f"Device {self.suntech_device_id}: Nenhum dado retornado pela API Suntech")
                 return False
             
             # Atualizar dados do dispositivo
             self.suntech_vehicle_id = vehicle_data.get('vehicleId')
             self.label = vehicle_data.get('label')
             
-            # Atualizar dados de telemetria
+            # Processar timestamps
             date_str = vehicle_data.get('date')
             system_date_str = vehicle_data.get('systemDate')
             
@@ -214,6 +220,7 @@ class Device(models.Model):
                     datetime.strptime(system_date_str, '%Y-%m-%d %H:%M:%S')
                 )
             
+            # Atualizar dados de telemetria
             self.last_latitude = vehicle_data.get('latitude')
             self.last_longitude = vehicle_data.get('longitude')
             self.last_address = vehicle_data.get('address')
@@ -222,11 +229,27 @@ class Device(models.Model):
             self.odometer = vehicle_data.get('odometer')
             
             self.last_sync_at = timezone.now()
+            
+            # save() irá validar timestamp automaticamente
+            # Se posição for antiga, ValidationError será lançado
             self.save()
+            
+            logger.info(
+                f"Device {self.suntech_device_id} sincronizado com sucesso - "
+                f"Posição: ({self.last_latitude}, {self.last_longitude})"
+            )
             
             return True
             
-        except SuntechAPIError:
+        except ValidationError as e:
+            # Posição antiga rejeitada pelo save()
+            logger.warning(f"Device {self.suntech_device_id}: {e}")
+            return False
+        except SuntechAPIError as e:
+            logger.error(f"Device {self.suntech_device_id}: Erro na API Suntech: {e}")
+            return False
+        except Exception as e:
+            logger.error(f"Device {self.suntech_device_id}: Erro inesperado: {e}", exc_info=True)
             return False
     
     def check_suntech_status(self):
@@ -266,9 +289,74 @@ class Device(models.Model):
                     'vehicle': 'Este veículo já possui um dispositivo vinculado.'
                 })
     
-    def save(self, *args, **kwargs):
+    def save(self, *args, skip_timestamp_validation=False, **kwargs):
         """
-        Sobrescreve o save para validar antes de salvar.
+        Sobrescreve o save para validar timestamp antes de salvar.
+        
+        🛡️ VALIDAÇÃO CRÍTICA DE TIMESTAMP:
+        - Rejeita posições com timestamp mais antigo que o último registrado
+        - Previne tracking devastado por posições antigas
+        - Garante consistência em 100+ dispositivos em tempo real
+        
+        Args:
+            skip_timestamp_validation: Se True, pula validação (usar apenas em setup/testes)
         """
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        # 🛡️ VALIDAÇÃO DE TIMESTAMP - Single Source of Truth
+        if not skip_timestamp_validation and self.pk and self.last_system_date:
+            try:
+                # Buscar timestamp atual do banco
+                old_device = Device.objects.only('last_system_date', 'suntech_device_id').get(pk=self.pk)
+                
+                if old_device.last_system_date:
+                    # Comparar timestamps
+                    if self.last_system_date < old_device.last_system_date:
+                        # POSIÇÃO ANTIGA - REJEITAR
+                        time_diff = (old_device.last_system_date - self.last_system_date).total_seconds()
+                        
+                        error_msg = (
+                            f"🚨 POSIÇÃO ANTIGA REJEITADA: "
+                            f"Device {self.suntech_device_id} "
+                            f"({self.vehicle.placa if hasattr(self, 'vehicle') else 'N/A'}) - "
+                            f"Tentativa de salvar timestamp {self.last_system_date.isoformat()} "
+                            f"mais antigo que o atual {old_device.last_system_date.isoformat()} - "
+                            f"Diferença: {time_diff:.0f}s ({time_diff/60:.1f} min) mais antiga"
+                        )
+                        
+                        logger.error(error_msg)
+                        
+                        raise ValidationError({
+                            'last_system_date': (
+                                f'Posição rejeitada: timestamp {time_diff/60:.1f} minutos '
+                                f'mais antigo que a posição atual. '
+                                f'Use skip_timestamp_validation=True apenas se necessário.'
+                            )
+                        })
+                    
+                    elif self.last_system_date == old_device.last_system_date:
+                        # Mesmo timestamp - aceitar mas logar
+                        logger.debug(
+                            f"Device {self.suntech_device_id}: "
+                            f"Mesmo timestamp (duplicata), permitindo..."
+                        )
+                    
+                    else:
+                        # Timestamp mais recente - OK
+                        time_diff = (self.last_system_date - old_device.last_system_date).total_seconds()
+                        logger.info(
+                            f"✅ Device {self.suntech_device_id} "
+                            f"({self.vehicle.placa if hasattr(self, 'vehicle') else 'N/A'}): "
+                            f"Nova posição válida - "
+                            f"Anterior: {old_device.last_system_date.isoformat()} - "
+                            f"Nova: {self.last_system_date.isoformat()} - "
+                            f"Diferença: +{time_diff:.0f}s (+{time_diff/60:.1f} min)"
+                        )
+                        
+            except Device.DoesNotExist:
+                # Novo dispositivo - pular validação
+                pass
+        
         self.full_clean()
         super().save(*args, **kwargs)
