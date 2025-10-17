@@ -285,17 +285,17 @@ System{% endblock %} {% block page_title %}Detalhes do Motorista{% endblock %}
               {% for trip in recent_trips %}
               <tr class="hover:bg-gray-750">
                 <td class="px-4 py-3 text-sm text-gray-300">
-                  {{ trip.origin }}
+                  {{ trip.route.origin_name }}
                 </td>
                 <td class="px-4 py-3 text-sm text-gray-300">
-                  {{ trip.destination }}
+                  {{ trip.route.destination_name }}
                 </td>
                 <td class="px-4 py-3 text-sm text-gray-400">
-                  {{ trip.date|date:"d/m/Y" }}
+                  {{ trip.created_at|date:"d/m/Y" }}
                 </td>
                 <td class="px-4 py-3">
                   <span
-                    class="px-2 py-1 text-xs rounded-full {% if trip.status == 'completed' %}bg-green-100 text-green-800{% elif trip.status == 'active' %}bg-yellow-100 text-yellow-800{% else %}bg-gray-100 text-gray-800{% endif %}"
+                    class="px-2 py-1 text-xs rounded-full {% if trip.status == 'CONCLUIDO' %}bg-green-100 text-green-800{% elif trip.status == 'EM_ANDAMENTO' %}bg-yellow-100 text-yellow-800{% elif trip.status == 'PLANEJADO' %}bg-blue-100 text-blue-800{% else %}bg-gray-100 text-gray-800{% endif %}"
                   >
                     {{ trip.get_status_display }}
                   </span>

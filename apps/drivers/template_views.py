@@ -12,6 +12,8 @@ from .models import Driver
 @login_required
 def driver_list(request):
     """Lista de motoristas com filtros e paginação"""
+    from apps.monitoring.models import MonitoringSystem
+    
     # GR pode ver todos os motoristas, Transportadora vê apenas os seus
     if request.user.is_superuser or request.user.user_type == 'GR':
         drivers = Driver.objects.all().select_related('transportadora')
@@ -42,20 +44,31 @@ def driver_list(request):
     sort = request.GET.get('sort', '-created_at')
     drivers = drivers.order_by(sort)
     
-    # Stats - usar a mesma lógica de permissão que a listagem
+    # Stats - contar motoristas em viagem
     if request.user.is_superuser or request.user.user_type == 'GR':
+        # Contar motoristas que têm viagens ativas (EM_ANDAMENTO)
+        drivers_on_trip = MonitoringSystem.objects.filter(
+            status='EM_ANDAMENTO'
+        ).values('driver').distinct().count()
+        
         stats = {
             'total': Driver.objects.all().count(),
             'active': Driver.objects.filter(is_active=True).count(),
             'inactive': Driver.objects.filter(is_active=False).count(),
-            'on_trip': 0,  # TODO: contar motoristas em viagem
+            'on_trip': drivers_on_trip,
         }
     else:
+        # Contar apenas motoristas da transportadora que estão em viagem
+        drivers_on_trip = MonitoringSystem.objects.filter(
+            transportadora=request.user,
+            status='EM_ANDAMENTO'
+        ).values('driver').distinct().count()
+        
         stats = {
             'total': Driver.objects.filter(transportadora=request.user).count(),
             'active': Driver.objects.filter(transportadora=request.user, is_active=True).count(),
             'inactive': Driver.objects.filter(transportadora=request.user, is_active=False).count(),
-            'on_trip': 0,  # TODO: contar motoristas em viagem
+            'on_trip': drivers_on_trip,
         }
     
     # Pagination
@@ -73,22 +86,37 @@ def driver_list(request):
 @login_required
 def driver_detail(request, pk):
     """Detalhes de um motorista"""
+    from apps.monitoring.models import MonitoringSystem
+    from django.db.models import Sum
+    
     # GR pode ver qualquer motorista, Transportadora apenas os seus
     if request.user.is_superuser or request.user.user_type == 'GR':
         driver = get_object_or_404(Driver, pk=pk)
     else:
         driver = get_object_or_404(Driver, pk=pk, transportadora=request.user)
     
-    # Stats
+    # Buscar viagens do motorista
+    trips = MonitoringSystem.objects.filter(driver=driver)
+    
+    # Calcular estatísticas
+    total_trips = trips.count()
+    completed_trips = trips.filter(status='CONCLUIDO').count()
+    active_trips = trips.filter(status__in=['PLANEJADO', 'EM_ANDAMENTO']).count()
+    
+    # Calcular distância total percorrida
+    total_distance = trips.filter(status='CONCLUIDO').aggregate(
+        total=Sum('total_distance_traveled')
+    )['total'] or 0
+    
     stats = {
-        'total_trips': 0,  # TODO: contar viagens
-        'completed_trips': 0,
-        'active_trips': 0,
-        'total_distance': 0,
+        'total_trips': total_trips,
+        'completed_trips': completed_trips,
+        'active_trips': active_trips,
+        'total_distance': round(float(total_distance), 2),
     }
     
-    # Recent trips
-    recent_trips = []  # TODO: buscar viagens recentes
+    # Buscar viagens recentes (últimas 10)
+    recent_trips = trips.select_related('route', 'vehicle').order_by('-created_at')[:10]
     
     context = {
         'driver': driver,

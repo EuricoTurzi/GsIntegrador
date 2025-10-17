@@ -71,22 +71,37 @@ def vehicle_list(request):
 @login_required
 def vehicle_detail(request, pk):
     """Detalhes de um veículo"""
+    from apps.monitoring.models import MonitoringSystem
+    from django.db.models import Sum
+    
     # GR pode ver qualquer veículo, Transportadora apenas os seus
     if request.user.is_superuser or request.user.user_type == 'GR':
         vehicle = get_object_or_404(Vehicle, pk=pk)
     else:
         vehicle = get_object_or_404(Vehicle, pk=pk, transportadora=request.user)
     
-    # Stats
+    # Buscar viagens do veículo
+    trips = MonitoringSystem.objects.filter(vehicle=vehicle)
+    
+    # Calcular estatísticas
+    total_trips = trips.count()
+    completed_trips = trips.filter(status='CONCLUIDO').count()
+    active_trips = trips.filter(status__in=['PLANEJADO', 'EM_ANDAMENTO']).count()
+    
+    # Calcular distância total percorrida
+    total_distance = trips.filter(status='CONCLUIDO').aggregate(
+        total=Sum('total_distance_traveled')
+    )['total'] or 0
+    
     stats = {
-        'total_trips': 0,  # TODO: contar viagens
-        'completed_trips': 0,
-        'active_trips': 0,
-        'total_distance': 0,
+        'total_trips': total_trips,
+        'completed_trips': completed_trips,
+        'active_trips': active_trips,
+        'total_distance': round(float(total_distance), 2),
     }
     
-    # Recent trips
-    recent_trips = []  # TODO: buscar viagens recentes
+    # Buscar viagens recentes (últimas 10)
+    recent_trips = trips.select_related('route', 'driver').order_by('-created_at')[:10]
     
     context = {
         'vehicle': vehicle,
