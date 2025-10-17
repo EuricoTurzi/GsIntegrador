@@ -43,8 +43,12 @@ def vehicle_list(request):
     sort = request.GET.get('sort', '-created_at')
     vehicles = vehicles.order_by(sort)
     
-    # Stats
-    all_vehicles = Vehicle.objects.filter(transportadora=request.user)
+    # Stats - usar a mesma lógica de permissão que a listagem
+    if request.user.is_superuser or request.user.user_type == 'GR':
+        all_vehicles = Vehicle.objects.all()
+    else:
+        all_vehicles = Vehicle.objects.filter(transportadora=request.user)
+    
     stats = {
         'total': all_vehicles.count(),
         'available': all_vehicles.filter(status='DISPONIVEL').count(),

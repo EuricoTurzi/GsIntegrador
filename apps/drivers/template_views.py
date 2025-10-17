@@ -42,13 +42,21 @@ def driver_list(request):
     sort = request.GET.get('sort', '-created_at')
     drivers = drivers.order_by(sort)
     
-    # Stats
-    stats = {
-        'total': Driver.objects.filter(transportadora=request.user).count(),
-        'active': Driver.objects.filter(transportadora=request.user, is_active=True).count(),
-        'inactive': Driver.objects.filter(transportadora=request.user, is_active=False).count(),
-        'on_trip': 0,  # TODO: contar motoristas em viagem
-    }
+    # Stats - usar a mesma lógica de permissão que a listagem
+    if request.user.is_superuser or request.user.user_type == 'GR':
+        stats = {
+            'total': Driver.objects.all().count(),
+            'active': Driver.objects.filter(is_active=True).count(),
+            'inactive': Driver.objects.filter(is_active=False).count(),
+            'on_trip': 0,  # TODO: contar motoristas em viagem
+        }
+    else:
+        stats = {
+            'total': Driver.objects.filter(transportadora=request.user).count(),
+            'active': Driver.objects.filter(transportadora=request.user, is_active=True).count(),
+            'inactive': Driver.objects.filter(transportadora=request.user, is_active=False).count(),
+            'on_trip': 0,  # TODO: contar motoristas em viagem
+        }
     
     # Pagination
     paginator = Paginator(drivers, 20)
